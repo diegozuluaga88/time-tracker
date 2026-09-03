@@ -730,10 +730,9 @@ function EntryBlock({ entry, startMin, durationMin, colIndex, colCount, dayStart
                 <div className="absolute inset-y-0 left-0 w-[3px] rounded-l-md pointer-events-none" style={railStyle} />
             )}
 
-            {/* Grip icon (subtle affordance · hover-only · pointer-events off) */}
-            <div className={`absolute top-0.5 ${onDelete ? 'right-7' : 'right-0.5'} opacity-0 group-hover:opacity-30 text-foreground pointer-events-none`}>
-                <GripVertical className="h-3 w-3" />
-            </div>
+            {/* TT.37 · Diego 2026-09-03 · grip icon quitado · era solo visual
+                (pointer-events-none) y confundía al user pensando que era una
+                acción clickeable. Drag sigue funcionando via el div padre. */}
 
             {/* Deliverable-complete corner overlay */}
             {entry.deliverableComplete && (
