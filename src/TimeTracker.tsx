@@ -79,6 +79,21 @@ export default function TimeTracker({ onLogout, onNavigate }: Props) {
         setEntries(prev => prev.map(e => e.id === entryId ? { ...e, durationMinutes: newDurationMinutes } : e))
         addToast('info', `Duration updated to ${(newDurationMinutes / 60).toFixed(2).replace(/\.?0+$/, '')}h`)
     }
+    // TT.9 · Reset week · borra todos los entries del designer para la current week.
+    const handleResetWeek = () => {
+        const currentSunday = shiftMonday(weekMonday, 6)
+        const before = entries.length
+        setEntries(prev => prev.filter(e => !(e.designerId === designerId && e.date >= weekMonday && e.date <= currentSunday)))
+        const removed = before - entries.filter(e => !(e.designerId === designerId && e.date >= weekMonday && e.date <= currentSunday)).length
+        addToast('info', `Reset · ${removed} entr${removed === 1 ? 'y' : 'ies'} deleted for this week`)
+    }
+    // TT.9 · Reset day · borra entries del designer para un día específico.
+    const handleResetDay = (dateIso: string) => {
+        const before = entries.filter(e => e.designerId === designerId && e.date === dateIso).length
+        setEntries(prev => prev.filter(e => !(e.designerId === designerId && e.date === dateIso)))
+        const label = new Date(dateIso).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+        addToast('info', `Reset · ${before} entr${before === 1 ? 'y' : 'ies'} deleted for ${label}`)
+    }
     // TT.5 · Copy previous week (Harvest pattern) · duplica entries no-time-off
     // del week anterior en la current week (mismo weekday + start + duration
     // + project + task, nuevos IDs). Skip time-off (holiday/pto/sick).
@@ -130,6 +145,12 @@ export default function TimeTracker({ onLogout, onNavigate }: Props) {
 
     const currentWeekLabel = useMemo(() => formatMondayLabel(weekMonday), [weekMonday])
     const isCurrentWeek = weekMonday === mondayOf(TODAY_ISO)
+    // TT.9 · true si el current week (para designer) tiene entries copied.
+    // Detect via id prefix TE-COPY- set por handleCopyPreviousWeek.
+    const alreadyCopiedThisWeek = useMemo(() => {
+        const currentSunday = shiftMonday(weekMonday, 6)
+        return entries.some(e => e.designerId === designerId && e.date >= weekMonday && e.date <= currentSunday && e.id.startsWith('TE-COPY-'))
+    }, [entries, designerId, weekMonday])
 
     return (
         <div className="min-h-screen bg-background font-sans text-foreground pb-10">
@@ -193,9 +214,13 @@ export default function TimeTracker({ onLogout, onNavigate }: Props) {
                                 onEditEntry={handleEditEntry}
                                 onMoveEntry={handleMoveEntry}
                                 onResizeEntry={handleResizeEntry}
+                                onDeleteEntry={handleDelete}
                                 onCopyPreviousWeek={handleCopyPreviousWeek}
+                                alreadyCopiedThisWeek={alreadyCopiedThisWeek}
                                 summerFridays={summerFridays}
                                 onToggleSummerFridays={setSummerFridays}
+                                onResetWeek={handleResetWeek}
+                                onResetDay={handleResetDay}
                                 todayIso={TODAY_ISO}
                             />
                         ) : (

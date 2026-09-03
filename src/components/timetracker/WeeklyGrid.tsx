@@ -16,7 +16,7 @@
 // No external DnD lib · custom Pointer Events API handlers.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { GripVertical, Palette, Users, Wrench, Sun, PenTool, Presentation, Boxes, FileText, Coffee, Sunrise } from 'lucide-react'
+import { GripVertical, Palette, Users, Wrench, Sun, PenTool, Presentation, Boxes, FileText, Coffee, Sunrise, RotateCcw, Trash2 } from 'lucide-react'
 import { getProject } from '../../data/projects'
 import { getTaskType, formatTaskLabel } from '../../data/taskTypes'
 import {
@@ -43,11 +43,19 @@ interface Props {
     onEditEntry: (entry: TimeEntry) => void
     onMoveEntry?: (entryId: string, newDateIso: string, newStartMinutes: number) => void
     onResizeEntry?: (entryId: string, newDurationMinutes: number) => void
+    // TT.9 · delete inline sin abrir el TimeEntryForm.
+    onDeleteEntry?: (entryId: string) => void
     // TT.5 · copy last week's entries into current week (Harvest pattern).
     onCopyPreviousWeek?: () => void
+    // TT.9 · true si ya se hizo copy en esta semana · disable button para
+    // evitar duplicación accidental (Diego reportó doble-click issue).
+    alreadyCopiedThisWeek?: boolean
     // TT.5 · summer-Fridays capacity adjustment (-4h/week when active).
     summerFridays?: boolean
     onToggleSummerFridays?: (on: boolean) => void
+    // TT.9 · reset controls · borra entries del designer para la week o day.
+    onResetWeek?: () => void
+    onResetDay?: (dateIso: string) => void
     todayIso: string
 }
 
@@ -110,7 +118,9 @@ interface PositionedEntry extends TimeEntry {
 
 export default function WeeklyGrid({
     designerId, weekMondayIso, allEntries, onAddEntry, onEditEntry, onMoveEntry, onResizeEntry,
-    onCopyPreviousWeek, summerFridays = false, onToggleSummerFridays, todayIso,
+    onDeleteEntry, onCopyPreviousWeek, alreadyCopiedThisWeek = false,
+    summerFridays = false, onToggleSummerFridays,
+    onResetWeek, onResetDay, todayIso,
 }: Props) {
     const gridRef = useRef<HTMLDivElement>(null)
     const scrollRef = useRef<HTMLDivElement>(null)
@@ -308,11 +318,29 @@ export default function WeeklyGrid({
                         <button
                             type="button"
                             onClick={onCopyPreviousWeek}
-                            className="inline-flex items-center gap-1.5 text-xs font-medium text-foreground border border-input rounded-md px-2.5 py-1.5 hover:bg-muted transition-colors"
-                            title="Duplicate last week's non-time-off entries into this week"
+                            disabled={alreadyCopiedThisWeek}
+                            className="inline-flex items-center gap-1.5 text-xs font-medium text-foreground border border-input rounded-md px-2.5 py-1.5 hover:bg-muted transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+                            title={alreadyCopiedThisWeek
+                                ? 'Already copied · reset the week to copy again'
+                                : "Duplicate last week's non-time-off entries into this week"}
                         >
                             <GripVertical className="h-3 w-3 rotate-90 text-muted-foreground" />
-                            Copy previous week
+                            {alreadyCopiedThisWeek ? 'Already copied' : 'Copy previous week'}
+                        </button>
+                    )}
+                    {onResetWeek && (
+                        <button
+                            type="button"
+                            onClick={() => {
+                                const confirmed = window.confirm(`Reset this week? All ${weekEntries.length} entries for the current week will be deleted. This can't be undone.`)
+                                if (confirmed) onResetWeek()
+                            }}
+                            className="inline-flex items-center gap-1.5 text-xs font-medium text-destructive border border-input rounded-md px-2.5 py-1.5 hover:bg-destructive-soft transition-colors"
+                            title="Delete all entries for this week (undoable after refresh · mock data)"
+                            disabled={weekEntries.length === 0}
+                        >
+                            <RotateCcw className="h-3 w-3" />
+                            Reset week
                         </button>
                     )}
                 </div>
@@ -349,10 +377,26 @@ export default function WeeklyGrid({
                     const dayEntries = weekEntries.filter(e => e.date === iso)
                     const dayHours = sumHours(dayEntries)
                     return (
-                        <div key={iso} className={`px-3 py-2 text-center border-r border-border last:border-r-0 ${isToday ? 'bg-primary-soft' : ''} ${isWeekend ? 'opacity-60' : ''}`}>
+                        <div key={iso} className={`group/day relative px-3 py-2 text-center border-r border-border last:border-r-0 ${isToday ? 'bg-primary-soft' : ''} ${isWeekend ? 'opacity-60' : ''}`}>
                             <div className={`text-[10px] uppercase tracking-wider ${isToday ? 'font-bold text-foreground' : 'font-semibold text-muted-foreground'}`}>{DAY_LABELS[i]}</div>
                             <div className={`text-xl tabular-nums leading-none mt-1 ${isToday ? 'font-bold text-foreground' : 'font-semibold text-foreground'}`}>{new Date(iso).getDate()}</div>
                             <div className="text-[10px] text-muted-foreground mt-1 tabular-nums">{dayHours > 0 ? `${dayHours.toFixed(1)}h` : '—'}</div>
+                            {/* TT.9 · reset day · hover-reveal icon-button en el header */}
+                            {onResetDay && dayEntries.length > 0 && (
+                                <button
+                                    type="button"
+                                    onClick={(e) => {
+                                        e.stopPropagation()
+                                        const confirmed = window.confirm(`Reset ${DAY_LABELS[i]} ${new Date(iso).getDate()}? All ${dayEntries.length} entr${dayEntries.length === 1 ? 'y' : 'ies'} for this day will be deleted.`)
+                                        if (confirmed) onResetDay(iso)
+                                    }}
+                                    className="absolute top-1 right-1 opacity-0 group-hover/day:opacity-100 p-1 rounded-md text-destructive hover:bg-destructive-soft transition-all"
+                                    title={`Delete ${dayEntries.length} entr${dayEntries.length === 1 ? 'y' : 'ies'} for ${DAY_LABELS[i]}`}
+                                    aria-label={`Reset ${DAY_LABELS[i]}`}
+                                >
+                                    <Trash2 className="h-3 w-3" />
+                                </button>
+                            )}
                         </div>
                     )
                 })}
@@ -424,6 +468,7 @@ export default function WeeklyGrid({
                                             colCount={entry.colCount}
                                             dayStartMin={dayStartMin}
                                             onEdit={() => onEditEntry(entry)}
+                                            onDelete={onDeleteEntry ? () => onDeleteEntry(entry.id) : undefined}
                                             onMoveStart={(grabOffsetMin) => {
                                                 setDragState({
                                                     kind: 'move',
@@ -506,11 +551,12 @@ interface EntryBlockProps {
     colCount: number
     dayStartMin: number
     onEdit: () => void
+    onDelete?: () => void
     onMoveStart: (grabOffsetMin: number) => void
     onResizeStart: () => void
 }
 
-function EntryBlock({ entry, startMin, durationMin, colIndex, colCount, dayStartMin, onEdit, onMoveStart, onResizeStart }: EntryBlockProps) {
+function EntryBlock({ entry, startMin, durationMin, colIndex, colCount, dayStartMin, onEdit, onDelete, onMoveStart, onResizeStart }: EntryBlockProps) {
     const project = getProject(entry.projectId)
     const taskType = getTaskType(entry.taskTypeId)
     const top = ((startMin - dayStartMin) / MINUTES_PER_SLOT) * CELL_HEIGHT_PX
@@ -626,16 +672,34 @@ function EntryBlock({ entry, startMin, durationMin, colIndex, colCount, dayStart
                 <div className="absolute inset-y-0 left-0 w-[3px] rounded-l-md pointer-events-none" style={railStyle} />
             )}
 
-            {/* Grip icon (subtle on hover, always available for keyboard focus visual) */}
-            <div className="absolute top-0.5 right-0.5 opacity-0 group-hover:opacity-40 text-foreground pointer-events-none">
+            {/* Grip icon (subtle affordance · hover-only · pointer-events off) */}
+            <div className={`absolute top-0.5 ${onDelete ? 'right-7' : 'right-0.5'} opacity-0 group-hover:opacity-30 text-foreground pointer-events-none`}>
                 <GripVertical className="h-3 w-3" />
             </div>
 
             {/* Deliverable-complete corner overlay */}
             {entry.deliverableComplete && (
-                <div className="absolute top-0 right-0 bg-success text-white text-[8px] font-bold px-1 rounded-bl-md pointer-events-none uppercase tracking-wider">
+                <div className={`absolute top-0 ${onDelete ? 'right-6' : 'right-0'} bg-success text-white text-[8px] font-bold px-1 rounded-bl-md pointer-events-none uppercase tracking-wider z-10`}>
                     ✓
                 </div>
+            )}
+
+            {/* TT.9 · Delete inline · hover-reveal · sin abrir el modal · confirm before */}
+            {onDelete && (
+                <button
+                    type="button"
+                    onPointerDown={(e) => e.stopPropagation()}
+                    onClick={(e) => {
+                        e.stopPropagation()
+                        const confirmed = window.confirm(`Delete this entry?\n\n${label} · ${hours}h${project ? ` · ${project.name}` : ''}\n${formatTimeOfDay(startMin)} – ${formatTimeOfDay(startMin + durationMin)}`)
+                        if (confirmed) onDelete()
+                    }}
+                    className="absolute top-0.5 right-0.5 opacity-0 group-hover:opacity-100 p-1 rounded-md bg-background/80 backdrop-blur-sm text-destructive hover:bg-destructive-soft transition-all z-20"
+                    title="Delete this entry (skip the form)"
+                    aria-label="Delete entry"
+                >
+                    <Trash2 className="h-3 w-3" />
+                </button>
             )}
 
             {/* Content · adaptive layout ---------------------------------- */}
