@@ -201,9 +201,14 @@ function generateEntries(): TimeEntry[] {
                 if (startMin < LUNCH_END_MIN && startMin + durationMinutes > LUNCH_START_MIN) {
                     startMin = LUNCH_END_MIN
                 }
-                // If entry would run past 6pm, wrap it (rare)
+                // TT.3 · fix bug del overlap · antes se hacía "wrap" a 8am
+                // si el entry rebasaba las 6pm, pero eso creaba una colisión
+                // directa con el 1er entry del día que también arranca a 8am.
+                // Ahora: si no cabe antes de 6pm, break del loop (no más
+                // entries ese día para ese designer). No solapamos por
+                // accidente en el mock.
                 if (startMin + durationMinutes > 18 * 60) {
-                    startMin = 8 * 60
+                    break
                 }
                 cursorMin = startMin + durationMinutes + Math.round((5 + rng() * 10) / 15) * 15
 
