@@ -29,18 +29,23 @@ export default function Navbar({ onLogout }: NavbarProps) {
     return (
         <>
             <div className="fixed top-6 left-1/2 -translate-x-1/2 z-50 min-w-[60vw] max-w-fit lg:min-w-0 lg:max-w-7xl lg:w-[80vw]">
-                <div className="relative flex items-center justify-between px-3 py-2 rounded-full gap-3 bg-card/80 backdrop-blur-xl border border-border shadow-lg dark:shadow-glow-md">
+                <div className="relative flex items-center lg:justify-between px-3 py-2 rounded-full gap-1 bg-card/80 backdrop-blur-xl border border-border shadow-lg dark:shadow-glow-md">
 
-                    {/* Left · Logo + Time Tracker title */}
-                    <div className="flex items-center gap-3">
+                    {/* Left · Logo */}
+                    <div className="flex items-center gap-1">
                         <div className="px-2 shrink-0">
                             <img src={logoLightBrand} alt="Strata" className="h-8 w-20 object-contain block dark:hidden" />
                             <img src={logoDarkBrand} alt="Strata" className="h-8 w-20 object-contain hidden dark:block" />
                         </div>
-                        <div className="w-px h-6 bg-border"></div>
-                        <div className="flex items-center gap-2">
-                            <Clock className="h-4 w-4 text-primary" />
-                            <span className="text-sm font-bold text-foreground">Time Tracker</span>
+                    </div>
+
+                    {/* Center · Time Tracker pill (TT.33.1 · restaurado estilo primary
+                        del active tab · antes de la simplificación TT.33 el título
+                        había perdido el pill amarillo y quedado como text plano). */}
+                    <div className="flex items-center gap-1 mx-auto">
+                        <div className="relative flex items-center justify-center h-9 px-3 rounded-full bg-primary text-primary-foreground">
+                            <Clock className="w-5 h-5" />
+                            <span className="ml-2 text-sm font-bold whitespace-nowrap">Time Tracker</span>
                         </div>
                     </div>
 
