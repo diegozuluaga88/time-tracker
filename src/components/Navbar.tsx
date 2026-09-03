@@ -1,178 +1,62 @@
-import { useState, useRef, useEffect } from 'react'
+// TT.33 · Diego 2026-09-03 · Navbar simplificado · versión standalone
+// Time Tracker. Del template expert-hub original se quitaron:
+//   - TENANT selector (dropdown de dealers)
+//   - Nav tabs Feedback / OCR / Transactions / Comparisons
+//   - Bell notifications (sin handler)
+//   - Role label "Expert" en avatar
+// Queda: logo Strata · title Time Tracker · theme toggle · avatar + sign out.
+
+import { useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { useTheme } from 'strata-design-system'
-import { useTenant } from '../TenantContext'
-import { ScanEye, MessageSquare, Bell, Moon, Sun, LogOut, ChevronDown, Building2, Check, KeyRound, Receipt, GitCompare, Clock } from 'lucide-react'
+import { Moon, Sun, LogOut, ChevronDown, KeyRound, Clock } from 'lucide-react'
 import logoLightBrand from '../assets/logo-light-brand.png'
 import logoDarkBrand from '../assets/logo-dark-brand.png'
 import ChangePasswordModal from './auth/ChangePasswordModal'
 
-type NavTab = 'OCR' | 'Feedback'
-
 interface NavbarProps {
-    onLogout: () => void;
-    activeTab?: NavTab | string;
-    onNavigateToWorkspace: () => void;
-    onNavigate: (page: any) => void;
+    onLogout: () => void
 }
 
-export default function Navbar({ onLogout, activeTab = 'OCR', onNavigate }: NavbarProps) {
+export default function Navbar({ onLogout }: NavbarProps) {
     const { theme, toggleTheme } = useTheme()
     const { user } = useAuth()
-    const { selectedTenants, tenants, toggleTenant, selectAll } = useTenant()
     const [isUserMenuOpen, setIsUserMenuOpen] = useState(false)
     const [showChangePassword, setShowChangePassword] = useState(false)
-    const [isTenantOpen, setIsTenantOpen] = useState(false)
-    const tenantRef = useRef<HTMLDivElement>(null)
 
-    useEffect(() => {
-        const handleClickOutside = (e: MouseEvent) => {
-            if (tenantRef.current && !tenantRef.current.contains(e.target as Node)) {
-                setIsTenantOpen(false)
-            }
-        }
-        if (isTenantOpen) document.addEventListener('mousedown', handleClickOutside)
-        return () => document.removeEventListener('mousedown', handleClickOutside)
-    }, [isTenantOpen])
-
-    // Catalog tab removed · feature movida al repo expert-catalog.
-    // Para retomar · `git checkout backup/with-catalog`.
-    // DE1.16 · Diego 2026-09-02 · orden sincronizado con gostrata.app premain:
-    // Feedback (chat bubble · IZQUIERDA) → OCR (pill · centro) → Comparisons
-    // (icon · derecha de OCR). Antes era OCR → Comparisons → Feedback.
-    const tabs: { name: string; label: string; page: string; icon: any; hidden?: boolean }[] = [
-        { name: 'Feedback', label: 'Feedback', page: 'feedback', icon: MessageSquare },
-        // TT.1 · Diego 2026-09-03 · Time Tracker es el headline feature del
-        // demo · va como primer pill de contenido (antes de OCR).
-        { name: 'Time Tracker', label: 'Time Tracker', page: 'time-tracker', icon: Clock },
-        // DE1.11 · Diego 2026-09-02 · pill label acortado a 'OCR' para paridad
-        // con gostrata.app premain (antes decía 'OCR Tracking').
-        { name: 'OCR', label: 'OCR', page: 'ocr-tracking', icon: ScanEye },
-        // DE1.5 · Diego 2026-09-02 · Transactions oculto en el demo template ·
-        // no aparece en la versión premain de gostrata.app. Se mantiene el código
-        // (src/Transactions.tsx + rutas en App.tsx) por si se necesita restaurar.
-        { name: 'Transactions', label: 'Transactions', page: 'transactions', icon: Receipt, hidden: true },
-        { name: 'Comparisons', label: 'Comparisons', page: 'comparisons', icon: GitCompare },
-    ]
-    const visibleTabs = tabs.filter(t => !t.hidden)
-
-    // DE1.1 · fallback genérico (era 'Diego Zuluaga').
-    const displayName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Expert 1'
-    const userRole = (user?.user_metadata as { role?: string } | undefined)?.role ?? 'Expert'
+    const displayName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Designer'
 
     return (
         <>
-            {/* Navbar — matches UI-Dealer: rounded-full, top-6, min-w-[60vw], bg-card/80 backdrop-blur-xl */}
             <div className="fixed top-6 left-1/2 -translate-x-1/2 z-50 min-w-[60vw] max-w-fit lg:min-w-0 lg:max-w-7xl lg:w-[80vw]">
-                <div className="relative flex items-center lg:justify-between px-3 py-2 rounded-full gap-1 bg-card/80 backdrop-blur-xl border border-border shadow-lg dark:shadow-glow-md">
+                <div className="relative flex items-center justify-between px-3 py-2 rounded-full gap-3 bg-card/80 backdrop-blur-xl border border-border shadow-lg dark:shadow-glow-md">
 
-                    {/* Left: Logo + Brand + Tenant Selector */}
-                    <div className="flex items-center gap-1">
+                    {/* Left · Logo + Time Tracker title */}
+                    <div className="flex items-center gap-3">
                         <div className="px-2 shrink-0">
                             <img src={logoLightBrand} alt="Strata" className="h-8 w-20 object-contain block dark:hidden" />
                             <img src={logoDarkBrand} alt="Strata" className="h-8 w-20 object-contain hidden dark:block" />
                         </div>
-                        <div className="w-px h-6 bg-border mx-1"></div>
-                        <div className="hidden sm:flex items-center gap-1 px-2" ref={tenantRef}>
-                            <div>
-                                <div className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider leading-none">TENANT</div>
-                                <button
-                                    onClick={() => setIsTenantOpen(!isTenantOpen)}
-                                    className="flex items-center gap-1.5 text-sm font-bold text-foreground leading-tight hover:text-primary transition-colors"
-                                >
-                                    {selectedTenants.length === 1 ? selectedTenants[0] : `${selectedTenants.length} Tenants`}
-                                    <ChevronDown className={`h-3 w-3 text-muted-foreground transition-transform ${isTenantOpen ? 'rotate-180' : ''}`} />
-                                </button>
-                            </div>
-
-                            {/* Tenant Dropdown */}
-                            {isTenantOpen && (
-                                <div className="absolute left-14 top-full mt-2 w-64 bg-card border border-border rounded-xl shadow-lg z-50 p-1 animate-in fade-in slide-in-from-top-2 duration-200">
-                                    <div className="px-3 py-2 border-b border-border mb-1 flex items-center justify-between">
-                                        <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Tenants</span>
-                                        <button
-                                            onClick={selectAll}
-                                            className="text-[10px] font-medium text-primary hover:underline"
-                                        >
-                                            Select All
-                                        </button>
-                                    </div>
-                                    {tenants.map(tenant => {
-                                        const isSelected = selectedTenants.includes(tenant)
-                                        return (
-                                            <button
-                                                key={tenant}
-                                                onClick={() => toggleTenant(tenant)}
-                                                className="w-full flex items-center gap-3 px-3 py-2 text-sm rounded-lg hover:bg-muted transition-colors"
-                                            >
-                                                <div className={`h-4 w-4 rounded border flex items-center justify-center shrink-0 transition-colors ${
-                                                    isSelected
-                                                        ? 'bg-primary border-primary'
-                                                        : 'border-border'
-                                                }`}>
-                                                    {isSelected && <Check className="h-3 w-3 text-primary-foreground" />}
-                                                </div>
-                                                <Building2 className="h-4 w-4 text-muted-foreground shrink-0" />
-                                                <span className={`text-left truncate ${isSelected ? 'text-foreground font-medium' : 'text-muted-foreground'}`}>
-                                                    {tenant}
-                                                </span>
-                                            </button>
-                                        )
-                                    })}
-                                </div>
-                            )}
+                        <div className="w-px h-6 bg-border"></div>
+                        <div className="flex items-center gap-2">
+                            <Clock className="h-4 w-4 text-primary" />
+                            <span className="text-sm font-bold text-foreground">Time Tracker</span>
                         </div>
                     </div>
 
-                    {/* Center: Nav Tabs */}
-                    <div className="flex items-center gap-1 mx-auto">
-                        {visibleTabs.map(tab => {
-                            const isActive = activeTab === tab.name
-                            const Icon = tab.icon
-                            return (
-                                <button
-                                    key={tab.name}
-                                    onClick={() => onNavigate(tab.page)}
-                                    className={`relative flex items-center justify-center h-9 px-3 rounded-full transition-all duration-300 group overflow-hidden ${
-                                        isActive
-                                            ? 'bg-primary text-primary-foreground'
-                                            : 'hover:bg-white/90 dark:hover:bg-zinc-800/90 text-muted-foreground hover:text-foreground hover:shadow-sm'
-                                    }`}
-                                >
-                                    <span className="relative z-10"><Icon className="w-5 h-5" /></span>
-                                    <span className={`ml-2 text-sm font-bold whitespace-nowrap transition-all duration-300 ease-in-out ${
-                                        isActive ? 'max-w-xs opacity-100' : 'max-w-0 opacity-0 group-hover:max-w-xs group-hover:opacity-100'
-                                    }`}>
-                                        {tab.label}
-                                    </span>
-                                </button>
-                            )
-                        })}
-                    </div>
-
-                    {/* Right: Actions */}
+                    {/* Right · Theme toggle + user menu */}
                     <div className="flex items-center gap-1 shrink-0">
-                        {/* Bell */}
-                        <button
-                            className="flex items-center justify-center h-9 w-9 rounded-full hover:bg-muted text-muted-foreground hover:text-foreground transition-all"
-                            title="Notifications"
-                        >
-                            <Bell className="w-4 h-4" />
-                        </button>
-
-                        {/* Theme Toggle */}
                         <button
                             onClick={toggleTheme}
                             className="flex items-center justify-center h-9 w-9 rounded-full hover:bg-muted text-muted-foreground hover:text-foreground transition-all"
                             title={theme === 'dark' ? 'Light mode' : 'Dark mode'}
+                            aria-label="Toggle theme"
                         >
                             {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
                         </button>
 
-                        {/* Separator */}
                         <div className="w-px h-6 bg-border mx-1"></div>
 
-                        {/* User */}
                         <div className="relative">
                             <button
                                 onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
@@ -191,8 +75,7 @@ export default function Navbar({ onLogout, activeTab = 'OCR', onNavigate }: Navb
                                     {displayName.charAt(0).toUpperCase()}
                                 </div>
                                 <div className="hidden md:block text-left">
-                                    <div className="text-xs font-semibold text-foreground leading-tight truncate max-w-[100px]">{displayName}</div>
-                                    <div className="text-[10px] text-muted-foreground leading-none">{userRole}</div>
+                                    <div className="text-xs font-semibold text-foreground leading-tight truncate max-w-[120px]">{displayName}</div>
                                 </div>
                                 <ChevronDown className="h-3 w-3 text-muted-foreground hidden md:block" />
                             </button>
@@ -203,7 +86,7 @@ export default function Navbar({ onLogout, activeTab = 'OCR', onNavigate }: Navb
                                     <div className="absolute right-0 top-full mt-2 w-48 bg-card border border-border rounded-xl shadow-lg z-50 p-1">
                                         <div className="px-3 py-2 border-b border-border mb-1">
                                             <div className="text-sm font-medium text-foreground">{displayName}</div>
-                                            <div className="text-xs text-muted-foreground">{user?.email || 'sara.chen@strata.com'}</div>
+                                            <div className="text-xs text-muted-foreground">{user?.email || 'designer@wurkwel.com'}</div>
                                         </div>
                                         <button
                                             onClick={() => { setIsUserMenuOpen(false); setShowChangePassword(true); }}
@@ -214,7 +97,7 @@ export default function Navbar({ onLogout, activeTab = 'OCR', onNavigate }: Navb
                                         </button>
                                         <button
                                             onClick={() => { setIsUserMenuOpen(false); onLogout(); }}
-                                            className="w-full flex items-center gap-2 px-3 py-2 text-sm text-error hover:bg-error-light dark:hover:bg-error/10 rounded-lg transition-colors"
+                                            className="w-full flex items-center gap-2 px-3 py-2 text-sm text-destructive hover:bg-destructive-soft rounded-lg transition-colors"
                                         >
                                             <LogOut className="h-4 w-4" />
                                             Sign Out

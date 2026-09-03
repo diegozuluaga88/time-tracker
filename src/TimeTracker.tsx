@@ -1,15 +1,10 @@
-// TT.1 · Diego 2026-09-03 · Time Tracker root page.
+// TT.1 · Diego 2026-09-03 · Time Tracker root page (standalone post TT.33).
 // Two role-aware surfaces via segmented control: My Timesheet (designer)
-// + Team View (manager · shell only in TT.1 · Manager Dashboard lives in
-// TT.2). Designer default landing = My Timesheet.
-//
-// Header + tabs card matches OCRTracking pattern (bg-card rounded-2xl
-// border shadow-sm) for consistency with the rest of expert-hub.
+// + Team View (manager · Manager Dashboard vive en TT.6).
 
 import { useMemo, useState } from 'react'
 import { Clock, ChevronLeft, ChevronRight, User, Users } from 'lucide-react'
 import Navbar from './components/Navbar'
-import Breadcrumbs from './components/Breadcrumbs'
 import { ToastContainer, useToast } from './components/AuthToast'
 import WeeklyGrid, { mondayOf } from './components/timetracker/WeeklyGrid'
 import TimeEntryForm from './components/timetracker/TimeEntryForm'
@@ -23,12 +18,11 @@ import { coachingCopy } from './data/coachingCopy'
 
 interface Props {
     onLogout: () => void
-    onNavigate: (page: string) => void
 }
 
 type Mode = 'my-timesheet' | 'team-view'
 
-export default function TimeTracker({ onLogout, onNavigate }: Props) {
+export default function TimeTracker({ onLogout }: Props) {
     // TT.1 · single designer scope (designer role default = 'me').
     // TT.2 · Team View will unlock manager surface.
     const [mode, setMode] = useState<Mode>('my-timesheet')
@@ -154,19 +148,11 @@ export default function TimeTracker({ onLogout, onNavigate }: Props) {
 
     return (
         <div className="min-h-screen bg-background font-sans text-foreground pb-10">
-            <Navbar onLogout={onLogout} activeTab="Time Tracker" onNavigateToWorkspace={() => onNavigate('time-tracker')} onNavigate={onNavigate} />
+            <Navbar onLogout={onLogout} />
 
-            {/* Breadcrumb below navbar (align with expert-hub pattern) */}
-            <div className="pt-24 px-4 max-w-screen-2xl mx-auto">
-                <div className="text-xs">
-                    <Breadcrumbs items={[
-                        { label: 'Expert Hub', onClick: () => onNavigate('ocr-tracking') },
-                        { label: 'Time Tracker', active: true },
-                    ]} />
-                </div>
-            </div>
-
-            <div className="pt-4 px-4 max-w-screen-2xl mx-auto space-y-6">
+            {/* TT.33 · pt-24 compensa altura del Navbar fijo · sin breadcrumb ·
+                standalone Time Tracker no vive dentro de expert hub. */}
+            <div className="pt-24 px-4 max-w-screen-2xl mx-auto space-y-6">
                 <div className="bg-card rounded-2xl border border-border shadow-sm overflow-hidden">
                     {/* Header: title + mode switch + week nav */}
                     <div className="p-6 border-b border-border">

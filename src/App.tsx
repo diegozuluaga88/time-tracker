@@ -1,48 +1,17 @@
-import { useState } from 'react'
+// TT.33 · Diego 2026-09-03 · standalone Time Tracker · las 4 páginas
+// heredadas del template (OCR/Feedback/Transactions/Comparisons) fueron
+// eliminadas · el app es 100% Time Tracker post-login.
+
 import { useAuth } from './context/AuthContext'
 import Login from "./Login"
-import OCRTracking from "./OCRTracking"
-import FeedbackBoard from "./FeedbackBoard"
-import Transactions from "./Transactions"
-import Comparisons from "./Comparisons"
-// TT.1 · Diego 2026-09-03 · Time Tracker root page (new).
 import TimeTracker from "./TimeTracker"
-import Navbar from "./components/Navbar"
 import SessionExpiryModal from "./components/SessionExpiryModal"
-
-// Split note · Catalog/Quote section movida al repo expert-catalog.
-// Para retomar el state previo · `git checkout backup/with-catalog` o
-// `git checkout v-with-catalog-snapshot`.
-// OrderDetail/AckDetail full pages removidos · Transactions ahora usa
-// DocumentReviewModal (de OCR) para todos los previews.
-
-type Page = 'ocr-tracking' | 'feedback' | 'transactions' | 'comparisons' | 'time-tracker'
-
-export interface ConvertedDocument {
-  id: string
-  vendor: string
-  name: string
-  type: 'po' | 'ack'
-  tab: 'orders' | 'acknowledgments'
-}
 
 function App() {
   const { user, initialLoading, signOut, showSessionWarning, refreshSession } = useAuth()
-  // TT.1 · default landing = time-tracker (headline feature del demo).
-  const [currentPage, setCurrentPage] = useState<Page>('time-tracker')
-  const [convertedDoc, setConvertedDoc] = useState<ConvertedDocument | null>(null)
-
-  const handleNavigate = (page: string) => {
-    setCurrentPage(page as Page)
-  }
 
   const handleLogout = () => {
     signOut()
-  }
-
-  const handleConvertFromOCR = (doc: ConvertedDocument) => {
-    setConvertedDoc(doc)
-    setCurrentPage('transactions')
   }
 
   if (initialLoading) {
@@ -57,45 +26,9 @@ function App() {
     return <Login />
   }
 
-  const renderPage = () => {
-    switch (currentPage) {
-      case 'time-tracker':
-        return <TimeTracker onLogout={handleLogout} onNavigate={handleNavigate} />
-      case 'feedback':
-        return <FeedbackBoard onLogout={handleLogout} onNavigate={handleNavigate} />
-      case 'comparisons':
-        return <Comparisons onLogout={handleLogout} onNavigate={handleNavigate} />
-      case 'transactions':
-        return (
-          <>
-            <Navbar
-              onLogout={handleLogout}
-              activeTab="Transactions"
-              onNavigateToWorkspace={() => setCurrentPage('transactions')}
-              onNavigate={handleNavigate}
-            />
-            <Transactions
-              onLogout={handleLogout}
-              onNavigateToWorkspace={() => setCurrentPage('transactions')}
-              onNavigate={handleNavigate}
-              convertedDoc={convertedDoc}
-            />
-          </>
-        )
-      default:
-        return (
-          <OCRTracking
-            onLogout={handleLogout}
-            onNavigate={handleNavigate}
-            onConvertDocument={handleConvertFromOCR}
-          />
-        )
-    }
-  }
-
   return (
     <div className="min-h-screen bg-background text-foreground">
-      {renderPage()}
+      <TimeTracker onLogout={handleLogout} />
       <SessionExpiryModal
         isOpen={showSessionWarning}
         onExtend={refreshSession}
