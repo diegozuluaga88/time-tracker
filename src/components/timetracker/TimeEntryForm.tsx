@@ -44,6 +44,9 @@ export default function TimeEntryForm({ isOpen, onClose, date, entry, allEntries
     const [durationHHMM, setDurationHHMM] = useState(entry ? minutesToHHMM(entry.durationMinutes) : minutesToHHMM(initialDurationMinutes ?? 60))
     const [billable, setBillable] = useState(entry?.billable ?? true)
     const [deliverableComplete, setDeliverableComplete] = useState(entry?.deliverableComplete ?? false)
+    // TT.12 · Diego 2026-09-03 · start time editable · viene del drag o
+    // del entry existente · undefined = sin franja definida (auto-stack).
+    const [startMin, setStartMin] = useState<number | undefined>(entry?.startMinutesFromMidnight ?? initialStartMinutes)
     const [saveState, setSaveState] = useState<SaveState>('idle')
     const [savedAt, setSavedAt] = useState<number | null>(null)
     const [savedSecondsAgo, setSavedSecondsAgo] = useState(0)
@@ -61,10 +64,11 @@ export default function TimeEntryForm({ isOpen, onClose, date, entry, allEntries
         setDurationHHMM(entry ? minutesToHHMM(entry.durationMinutes) : minutesToHHMM(initialDurationMinutes ?? 60))
         setBillable(entry?.billable ?? true)
         setDeliverableComplete(entry?.deliverableComplete ?? false)
+        setStartMin(entry?.startMinutesFromMidnight ?? initialStartMinutes)
         setSaveState('idle')
         setSavedAt(null)
         setShowTaskTypePrompt(false)
-    }, [isOpen, entry?.id, initialDurationMinutes]) // eslint-disable-line react-hooks/exhaustive-deps
+    }, [isOpen, entry?.id, initialDurationMinutes, initialStartMinutes]) // eslint-disable-line react-hooks/exhaustive-deps
 
     // Live "Saved Xs ago" ticker.
     useEffect(() => {
@@ -129,7 +133,8 @@ export default function TimeEntryForm({ isOpen, onClose, date, entry, allEntries
                 deliverableComplete,
                 deliverableSentAt: undefined,
                 // TT.2 · preserve existing start (edit) or use drag-create pre-fill.
-                startMinutesFromMidnight: entry?.startMinutesFromMidnight ?? initialStartMinutes,
+                // TT.12 · usar el startMin editado (state) · fallback al entry o al drag.
+                startMinutesFromMidnight: startMin ?? entry?.startMinutesFromMidnight ?? initialStartMinutes,
             })
             setSaveState('saved')
             setSavedAt(Date.now())
@@ -175,27 +180,72 @@ export default function TimeEntryForm({ isOpen, onClose, date, entry, allEntries
 
                                 {/* Body */}
                                 <div className="p-6 space-y-4">
-                                    {/* Duration + Billable */}
-                                    <div className="grid grid-cols-[1fr_auto] gap-4 items-end">
+                                    {/* TT.12 · Time range · start + end editable cuando la franja
+                                        viene del drag (o del entry existente). Fuente de verdad =
+                                        start · end se deriva de duration · si el user edita end,
+                                        se recalcula duration (start queda fijo). */}
+                                    {startMin !== undefined ? (
                                         <div>
-                                            <label className="block text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1.5">Duration</label>
-                                            <div className="flex items-center gap-2">
+                                            <div className="flex items-end justify-between gap-4 mb-1.5">
+                                                <label className="block text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Time range</label>
+                                                <label className="flex items-center gap-2 text-sm text-foreground cursor-pointer">
+                                                    <input type="checkbox" checked={billable} onChange={(e) => setBillable(e.target.checked)} className="h-4 w-4 accent-success" />
+                                                    Billable
+                                                </label>
+                                            </div>
+                                            <div className="grid grid-cols-[auto_1fr_auto_1fr_auto] gap-2 items-center">
                                                 <Clock className="h-4 w-4 text-muted-foreground" />
                                                 <input
-                                                    type="text"
-                                                    value={durationHHMM}
-                                                    onChange={(e) => setDurationHHMM(e.target.value)}
-                                                    placeholder="1:00"
-                                                    className="w-24 px-3 py-2 text-lg tabular-nums font-semibold bg-background border border-input rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+                                                    type="time"
+                                                    step={900}
+                                                    value={minutesToTimeInput(startMin)}
+                                                    onChange={(e) => {
+                                                        const newStart = timeInputToMinutes(e.target.value)
+                                                        if (newStart !== null) setStartMin(newStart)
+                                                    }}
+                                                    className="px-3 py-2 text-sm tabular-nums font-semibold bg-background border border-input rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+                                                    aria-label="Start time"
                                                 />
-                                                <span className="text-xs text-muted-foreground">hh:mm · 15-min steps</span>
+                                                <span className="text-xs text-muted-foreground px-1">to</span>
+                                                <input
+                                                    type="time"
+                                                    step={900}
+                                                    value={minutesToTimeInput(startMin + draftMinutes)}
+                                                    onChange={(e) => {
+                                                        const newEnd = timeInputToMinutes(e.target.value)
+                                                        if (newEnd === null) return
+                                                        const newDuration = Math.max(15, newEnd - startMin)
+                                                        setDurationHHMM(minutesToHHMM(Math.round(newDuration / 15) * 15))
+                                                    }}
+                                                    className="px-3 py-2 text-sm tabular-nums font-semibold bg-background border border-input rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+                                                    aria-label="End time"
+                                                />
+                                                <span className="text-xs text-muted-foreground tabular-nums">{durationHHMM} h</span>
                                             </div>
+                                            <p className="mt-1.5 text-[11px] text-muted-foreground">15-min steps · edítalo si el arrastre no fue preciso</p>
                                         </div>
-                                        <label className="flex items-center gap-2 text-sm text-foreground cursor-pointer">
-                                            <input type="checkbox" checked={billable} onChange={(e) => setBillable(e.target.checked)} className="h-4 w-4 accent-success" />
-                                            Billable
-                                        </label>
-                                    </div>
+                                    ) : (
+                                        <div className="grid grid-cols-[1fr_auto] gap-4 items-end">
+                                            <div>
+                                                <label className="block text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1.5">Duration</label>
+                                                <div className="flex items-center gap-2">
+                                                    <Clock className="h-4 w-4 text-muted-foreground" />
+                                                    <input
+                                                        type="text"
+                                                        value={durationHHMM}
+                                                        onChange={(e) => setDurationHHMM(e.target.value)}
+                                                        placeholder="1:00"
+                                                        className="w-24 px-3 py-2 text-lg tabular-nums font-semibold bg-background border border-input rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+                                                    />
+                                                    <span className="text-xs text-muted-foreground">hh:mm · 15-min steps</span>
+                                                </div>
+                                            </div>
+                                            <label className="flex items-center gap-2 text-sm text-foreground cursor-pointer">
+                                                <input type="checkbox" checked={billable} onChange={(e) => setBillable(e.target.checked)} className="h-4 w-4 accent-success" />
+                                                Billable
+                                            </label>
+                                        </div>
+                                    )}
 
                                     {/* Project */}
                                     <div>
@@ -307,4 +357,19 @@ function minutesToHHMM(min: number): string {
 function formatDateLong(iso: string): string {
     const d = new Date(iso)
     return d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
+}
+// TT.12 · <input type="time"> value ↔ minutes-from-midnight.
+function minutesToTimeInput(min: number): string {
+    const clamped = Math.max(0, Math.min(24 * 60 - 1, min))
+    const h = Math.floor(clamped / 60)
+    const m = clamped % 60
+    return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`
+}
+function timeInputToMinutes(v: string): number | null {
+    const [hStr, mStr] = v.split(':')
+    if (!hStr || !mStr) return null
+    const h = parseInt(hStr, 10)
+    const m = parseInt(mStr, 10)
+    if (isNaN(h) || isNaN(m)) return null
+    return h * 60 + m
 }
