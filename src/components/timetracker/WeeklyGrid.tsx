@@ -374,8 +374,8 @@ export default function WeeklyGrid({
                         ))}
                     </div>
 
-                    {/* Day columns */}
-                    {week.map((iso, dayIndex) => {
+                    {/* Day columns · TT.8 · iterate visibleDays (matches positionedByDay length) */}
+                    {visibleDays.map((iso, dayIndex) => {
                         const isToday = iso === todayIso
                         const isWeekend = dayIndex >= 5
                         const positioned = positionedByDay[dayIndex]
