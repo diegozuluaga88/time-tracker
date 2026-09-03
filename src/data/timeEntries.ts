@@ -28,6 +28,10 @@ export interface TimeEntry {
     deliverableComplete?: boolean
     /** ISO timestamp when the email fired (if deliverableComplete). */
     deliverableSentAt?: string
+    // TT.2 · Diego 2026-09-03 · start of day in minutes (0..1439).
+    // Optional for backwards-compat · WeeklyGrid auto-stacks entries
+    // that lack the field starting at 8am + break-chained.
+    startMinutesFromMidnight?: number
 }
 
 // Deterministic PRNG (Mulberry32). Same seed → same sequence.
@@ -113,6 +117,13 @@ export function isWeekend(iso: string): boolean {
 
 const ACTIVE_PROJECT_IDS = PROJECTS.filter(p => p.status === 'active').map(p => p.id)
 
+// TT.2 · Day-start baseline · 8:00 AM = 480 min from midnight.
+// Meetings tend to fall on round hours (9am, 10am, 2pm) · design work
+// starts after any morning meeting or right at 8am.
+const DAY_START_MIN = 8 * 60  // 8:00 AM
+const LUNCH_START_MIN = 12 * 60 // 12:00 PM
+const LUNCH_END_MIN = 13 * 60   // 1:00 PM
+
 function generateEntries(): TimeEntry[] {
     const entries: TimeEntry[] = []
     let seq = 1
@@ -138,12 +149,15 @@ function generateEntries(): TimeEntry[] {
             // Daniela 4-day: skip Fridays
             if (designerId === 'daniela' && new Date(date).getDay() === 5) continue
 
+            // TT.2 · start times chain from 8am + break 5-15min between entries.
+            // Skip lunch hour (12-1) automatically.
+            let cursorMin = DAY_START_MIN
+
             // 3-5 entries per day per designer (mix of design + meetings)
             const entryCount = 3 + Math.floor(rng() * 3)
             for (let i = 0; i < entryCount; i++) {
                 const isDesign = rng() < 0.75
                 const isMeeting = !isDesign && rng() < 0.6
-                const isAdmin = !isDesign && !isMeeting
 
                 let taskTypeId: string
                 let billable: boolean
@@ -157,10 +171,9 @@ function generateEntries(): TimeEntry[] {
                     billable = true
                     memo = pick(MEMOS_DESIGN)
                     const baseline = BASELINE_VELOCITY_MINUTES[designerId]?.[taskTypeId] ?? 90
-                    // Training-gap pattern: marcus + priya trending UP on block-plan across weeks
                     let velocityMult = 1
                     if (taskTypeId === 'block-plan' && (designerId === 'marcus' || designerId === 'priya')) {
-                        velocityMult = 1 + (3 - weekNumber) * 0.15 // 1.0 → 1.45 over 4 weeks
+                        velocityMult = 1 + (3 - weekNumber) * 0.15
                     }
                     durationMinutes = round15(baseline * velocityMult * (0.85 + rng() * 0.3))
                     if (['block-plan', 'floor-plan', 'powerpoint', 'renderings', 'spec-sheets'].includes(taskTypeId)) {
@@ -178,6 +191,22 @@ function generateEntries(): TimeEntry[] {
                     durationMinutes = round15(30 + rng() * 45)
                 }
 
+                // TT.2 · assign start · meetings snap to round hour, others chain.
+                let startMin = cursorMin
+                if (isMeeting) {
+                    // Round up to next hour
+                    startMin = Math.ceil(cursorMin / 60) * 60
+                }
+                // Skip lunch: if entry would span 12-1, push to 1pm
+                if (startMin < LUNCH_END_MIN && startMin + durationMinutes > LUNCH_START_MIN) {
+                    startMin = LUNCH_END_MIN
+                }
+                // If entry would run past 6pm, wrap it (rare)
+                if (startMin + durationMinutes > 18 * 60) {
+                    startMin = 8 * 60
+                }
+                cursorMin = startMin + durationMinutes + Math.round((5 + rng() * 10) / 15) * 15
+
                 entries.push({
                     id: `TE-${String(seq++).padStart(5, '0')}`,
                     designerId,
@@ -188,6 +217,7 @@ function generateEntries(): TimeEntry[] {
                     memo,
                     durationMinutes,
                     billable,
+                    startMinutesFromMidnight: startMin,
                 })
             }
         }
@@ -204,6 +234,7 @@ function generateEntries(): TimeEntry[] {
         memo: 'Onboarding block plan for Whittier · working through the whole east wing in one sitting',
         durationMinutes: 330,
         billable: true,
+        startMinutesFromMidnight: 9 * 60, // 9am-2:30pm (spans lunch intentionally · signals long session)
     })
 
     // Intentional deliverable-complete last week: jennifer marked complete on floor-plan.
@@ -219,9 +250,33 @@ function generateEntries(): TimeEntry[] {
         billable: true,
         deliverableComplete: true,
         deliverableSentAt: isoDate(6) + 'T15:47:00',
+        startMinutesFromMidnight: 13 * 60, // 1-4:30pm
     })
 
     return entries
+}
+
+// TT.2 · Constants exposed for WeeklyGrid rendering.
+export const CALENDAR_DAY_START_HOUR = 7  // 7am
+export const CALENDAR_DAY_END_HOUR = 19   // 7pm
+export const CELL_HEIGHT_PX = 12          // 12px per 15-min slot (48px per hour)
+export const MINUTES_PER_SLOT = 15
+
+/** Format minutes-from-midnight as "9:30 AM". */
+export function formatTimeOfDay(min: number): string {
+    const h = Math.floor(min / 60)
+    const m = min % 60
+    const ampm = h >= 12 ? 'PM' : 'AM'
+    const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h
+    return `${h12}:${m.toString().padStart(2, '0')} ${ampm}`
+}
+
+/** Compact "9:30" for header labels. */
+export function formatTimeOfDayShort(min: number): string {
+    const h = Math.floor(min / 60)
+    const ampm = h >= 12 ? 'p' : 'a'
+    const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h
+    return `${h12}${ampm}`
 }
 
 export const TIME_ENTRIES: TimeEntry[] = generateEntries()

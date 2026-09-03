@@ -28,17 +28,20 @@ interface Props {
     onDelete?: (entryId: string) => void
     /** Called when the deliverable email actually fires (after undo window). */
     onDeliverableDispatched?: (info: { entryId: string | null; projectId: string; salesRepName: string; timestampIso: string }) => void
+    // TT.2 · Diego 2026-09-03 · pre-fill duration + start time from drag-create.
+    initialDurationMinutes?: number
+    initialStartMinutes?: number
 }
 
 type SaveState = 'idle' | 'saving' | 'saved'
 
-export default function TimeEntryForm({ isOpen, onClose, date, entry, allEntries, onSave, onDelete, onDeliverableDispatched }: Props) {
+export default function TimeEntryForm({ isOpen, onClose, date, entry, allEntries, onSave, onDelete, onDeliverableDispatched, initialDurationMinutes, initialStartMinutes }: Props) {
     const isEdit = !!entry
     const [projectId, setProjectId] = useState<string | null>(entry?.projectId ?? null)
     const [taskTypeId, setTaskTypeId] = useState<string | null>(entry?.taskTypeId ?? null)
     const [completionState, setCompletionState] = useState<CompletionState | undefined>(entry?.completionState)
     const [memo, setMemo] = useState(entry?.memo ?? '')
-    const [durationHHMM, setDurationHHMM] = useState(entry ? minutesToHHMM(entry.durationMinutes) : '1:00')
+    const [durationHHMM, setDurationHHMM] = useState(entry ? minutesToHHMM(entry.durationMinutes) : minutesToHHMM(initialDurationMinutes ?? 60))
     const [billable, setBillable] = useState(entry?.billable ?? true)
     const [deliverableComplete, setDeliverableComplete] = useState(entry?.deliverableComplete ?? false)
     const [saveState, setSaveState] = useState<SaveState>('idle')
@@ -55,13 +58,13 @@ export default function TimeEntryForm({ isOpen, onClose, date, entry, allEntries
         setTaskTypeId(entry?.taskTypeId ?? null)
         setCompletionState(entry?.completionState)
         setMemo(entry?.memo ?? '')
-        setDurationHHMM(entry ? minutesToHHMM(entry.durationMinutes) : '1:00')
+        setDurationHHMM(entry ? minutesToHHMM(entry.durationMinutes) : minutesToHHMM(initialDurationMinutes ?? 60))
         setBillable(entry?.billable ?? true)
         setDeliverableComplete(entry?.deliverableComplete ?? false)
         setSaveState('idle')
         setSavedAt(null)
         setShowTaskTypePrompt(false)
-    }, [isOpen, entry?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+    }, [isOpen, entry?.id, initialDurationMinutes]) // eslint-disable-line react-hooks/exhaustive-deps
 
     // Live "Saved Xs ago" ticker.
     useEffect(() => {
@@ -115,7 +118,9 @@ export default function TimeEntryForm({ isOpen, onClose, date, entry, allEntries
                 durationMinutes: draftMinutes,
                 billable,
                 deliverableComplete,
-                deliverableSentAt: undefined, // dispatched separately via handler
+                deliverableSentAt: undefined,
+                // TT.2 · preserve existing start (edit) or use drag-create pre-fill.
+                startMinutesFromMidnight: entry?.startMinutesFromMidnight ?? initialStartMinutes,
             })
             setSaveState('saved')
             setSavedAt(Date.now())

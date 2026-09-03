@@ -34,11 +34,16 @@ export default function TimeTracker({ onLogout, onNavigate }: Props) {
     const [formOpen, setFormOpen] = useState(false)
     const [formDate, setFormDate] = useState<string>(TODAY_ISO)
     const [editingEntry, setEditingEntry] = useState<TimeEntry | null>(null)
+    // TT.2 · pre-fill from drag-create
+    const [formInitialDurationMin, setFormInitialDurationMin] = useState<number | undefined>()
+    const [formInitialStartMin, setFormInitialStartMin] = useState<number | undefined>()
     const { toasts, addToast, dismissToast } = useToast()
 
-    const handleAddEntry = (date: string) => {
+    const handleAddEntry = (date: string, durationMinutes?: number, startMinutes?: number) => {
         setFormDate(date)
         setEditingEntry(null)
+        setFormInitialDurationMin(durationMinutes)
+        setFormInitialStartMin(startMinutes)
         setFormOpen(true)
     }
     const handleEditEntry = (e: TimeEntry) => {
@@ -57,6 +62,16 @@ export default function TimeTracker({ onLogout, onNavigate }: Props) {
     const handleDelete = (entryId: string) => {
         setEntries(prev => prev.filter(e => e.id !== entryId))
         addToast('info', 'Entry deleted')
+    }
+    // TT.2 · drag-to-move handler
+    const handleMoveEntry = (entryId: string, newDateIso: string, newStartMinutes: number) => {
+        setEntries(prev => prev.map(e => e.id === entryId ? { ...e, date: newDateIso, startMinutesFromMidnight: newStartMinutes } : e))
+        addToast('success', `Moved to ${formatDayShort(newDateIso)}, ${formatTime(newStartMinutes)}`)
+    }
+    // TT.2 · drag-to-resize handler
+    const handleResizeEntry = (entryId: string, newDurationMinutes: number) => {
+        setEntries(prev => prev.map(e => e.id === entryId ? { ...e, durationMinutes: newDurationMinutes } : e))
+        addToast('info', `Duration updated to ${(newDurationMinutes / 60).toFixed(2).replace(/\.?0+$/, '')}h`)
     }
     const handleDeliverableDispatched = (info: { entryId: string | null; projectId: string; salesRepName: string; timestampIso: string }) => {
         // Persist deliverableSentAt on the entry (if we can find it).
@@ -137,6 +152,8 @@ export default function TimeTracker({ onLogout, onNavigate }: Props) {
                                 allEntries={entries}
                                 onAddEntry={handleAddEntry}
                                 onEditEntry={handleEditEntry}
+                                onMoveEntry={handleMoveEntry}
+                                onResizeEntry={handleResizeEntry}
                                 todayIso={TODAY_ISO}
                             />
                         ) : (
@@ -156,6 +173,8 @@ export default function TimeTracker({ onLogout, onNavigate }: Props) {
                 onSave={handleSave}
                 onDelete={handleDelete}
                 onDeliverableDispatched={handleDeliverableDispatched}
+                initialDurationMinutes={formInitialDurationMin}
+                initialStartMinutes={formInitialStartMin}
             />
 
             <ToastContainer toasts={toasts} onDismiss={dismissToast} />
@@ -200,4 +219,15 @@ function formatMondayLabel(iso: string): string {
     const end = new Date(d); end.setDate(d.getDate() + 6)
     const opts: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric' }
     return `${d.toLocaleDateString('en-US', opts)}–${end.getDate()}`
+}
+function formatDayShort(iso: string): string {
+    const d = new Date(iso)
+    return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+}
+function formatTime(min: number): string {
+    const h = Math.floor(min / 60)
+    const m = min % 60
+    const ampm = h >= 12 ? 'PM' : 'AM'
+    const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h
+    return `${h12}:${m.toString().padStart(2, '0')} ${ampm}`
 }
