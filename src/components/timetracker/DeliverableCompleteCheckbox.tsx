@@ -82,27 +82,34 @@ export default function DeliverableCompleteCheckbox({ checked, onChange, project
         setDispatch({ kind: 'pending', startedAt, timerId })
     }
 
+    // TT.20 · disabled visual + hint · el checkbox depende de tener project
+    // (sin project no hay salesRep al que mandar el email). Antes no daba
+    // feedback visual y parecía que "no cambiaba de estado" al click.
+    const isDisabled = !project
     return (
-        <div className="rounded-lg border border-border bg-card p-3 space-y-2">
-            <label className="flex items-start gap-3 cursor-pointer group">
-                <div className={`h-5 w-5 rounded-md border-2 flex items-center justify-center shrink-0 mt-0.5 transition-colors ${checked ? 'bg-success border-success' : 'border-input group-hover:border-primary'}`}>
-                    {checked && <Check className="h-3.5 w-3.5 text-white" strokeWidth={3} />}
+        <div className={`rounded-lg border p-3 space-y-2 ${isDisabled ? 'border-dashed border-border bg-muted/30' : 'border-border bg-card'}`}>
+            <label className={`flex items-start gap-3 group ${isDisabled ? 'cursor-not-allowed' : 'cursor-pointer'}`}>
+                <div className={`h-5 w-5 rounded-md border-2 flex items-center justify-center shrink-0 mt-0.5 transition-colors ${
+                    isDisabled ? 'border-input bg-muted opacity-50' :
+                    checked ? 'bg-success border-success' : 'border-input group-hover:border-primary'
+                }`}>
+                    {checked && !isDisabled && <Check className="h-3.5 w-3.5 text-white" strokeWidth={3} />}
                 </div>
                 <div className="flex-1">
-                    <div className="text-sm font-medium text-foreground">
+                    <div className={`text-sm font-medium ${isDisabled ? 'text-muted-foreground' : 'text-foreground'}`}>
                         Mark deliverable complete
                     </div>
-                    <p className="text-xs text-muted-foreground mt-0.5">
+                    <p className={`text-xs mt-0.5 ${isDisabled ? 'text-warning' : 'text-muted-foreground'}`}>
                         {project
                             ? <>Fires an email to <span className="font-medium text-foreground">{project.salesRepName}</span> on <span className="font-medium text-foreground">{project.name}</span>.</>
-                            : 'Pick a project to enable this.'}
+                            : 'Select a project above to enable this action.'}
                     </p>
                 </div>
                 <input
                     type="checkbox"
                     className="sr-only"
                     checked={checked}
-                    disabled={!project}
+                    disabled={isDisabled}
                     onChange={(e) => handleToggle(e.target.checked)}
                 />
             </label>
