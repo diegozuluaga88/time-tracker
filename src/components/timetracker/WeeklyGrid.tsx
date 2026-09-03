@@ -298,74 +298,80 @@ export default function WeeklyGrid({
 
     return (
         <div className="rounded-2xl border border-border bg-card overflow-hidden">
-            {/* Week header · totals summary + toggles */}
-            <div className="flex items-baseline justify-between px-5 py-4 border-b border-border gap-4 flex-wrap">
-                <div>
-                    <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Week of</div>
-                    <h3 className="text-lg font-semibold text-foreground">{formatWeekRange(week[0], week[6])}</h3>
+            {/* TT.13 · Diego 2026-09-03 · panel unificado · week meta + stats
+                (row 1) + actions + toggles (row 2) en un solo card interior,
+                separados solo por un hairline. Antes eran 2 panels con
+                borde+bg propios · duplicaba chrome y ruido visual. */}
+            <div className="border-b border-border divide-y divide-border/60">
+                {/* Row 1 · week meta + totals summary */}
+                <div className="flex items-baseline justify-between px-5 py-4 gap-4 flex-wrap">
+                    <div>
+                        <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Week of</div>
+                        <h3 className="text-lg font-semibold text-foreground">{formatWeekRange(week[0], week[6])}</h3>
+                    </div>
+                    <div className="flex items-center gap-6 text-sm">
+                        <SummaryStat label="Billable" hours={billableHours} tone="success" />
+                        <SummaryStat label="Internal" hours={internalHours} tone="info" />
+                        <SummaryStat label="Total" hours={totalHours} tone="foreground" />
+                        <SummaryStat label={`Capacity (${capacity}h)`} value={`${pct}%`} tone={pct >= 110 ? 'ai' : pct >= 80 ? 'success' : pct >= 70 ? 'warning' : 'destructive'} />
+                    </div>
                 </div>
-                <div className="flex items-center gap-6 text-sm">
-                    <SummaryStat label="Billable" hours={billableHours} tone="success" />
-                    <SummaryStat label="Internal" hours={internalHours} tone="info" />
-                    <SummaryStat label="Total" hours={totalHours} tone="foreground" />
-                    <SummaryStat label={`Capacity (${capacity}h)`} value={`${pct}%`} tone={pct >= 110 ? 'ai' : pct >= 80 ? 'success' : pct >= 70 ? 'warning' : 'destructive'} />
-                </div>
-            </div>
 
-            {/* TT.5 · toolbar · Copy previous week + Summer Fridays + Extended hours */}
-            <div className="flex items-center justify-between px-5 py-2 border-b border-border bg-muted/20 gap-3 flex-wrap">
-                <div className="flex items-center gap-2">
-                    {onCopyPreviousWeek && (
+                {/* Row 2 · actions (izq) + toggles (der) */}
+                <div className="flex items-center justify-between px-5 py-2.5 gap-3 flex-wrap">
+                    <div className="flex items-center gap-2">
+                        {onCopyPreviousWeek && (
+                            <button
+                                type="button"
+                                onClick={onCopyPreviousWeek}
+                                disabled={alreadyCopiedThisWeek}
+                                className="inline-flex items-center gap-1.5 text-xs font-medium text-foreground border border-input rounded-md px-2.5 py-1.5 hover:bg-muted transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+                                title={alreadyCopiedThisWeek
+                                    ? 'Already copied · reset the week to copy again'
+                                    : "Duplicate last week's non-time-off entries into this week"}
+                            >
+                                <GripVertical className="h-3 w-3 rotate-90 text-muted-foreground" />
+                                {alreadyCopiedThisWeek ? 'Already copied' : 'Copy previous week'}
+                            </button>
+                        )}
+                        {onResetWeek && (
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    const confirmed = window.confirm(`Reset this week? All ${weekEntries.length} entries for the current week will be deleted. This can't be undone.`)
+                                    if (confirmed) onResetWeek()
+                                }}
+                                className="inline-flex items-center gap-1.5 text-xs font-medium text-destructive border border-input rounded-md px-2.5 py-1.5 hover:bg-destructive-soft transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+                                title="Delete all entries for this week (undoable after refresh · mock data)"
+                                disabled={weekEntries.length === 0}
+                            >
+                                <RotateCcw className="h-3 w-3" />
+                                Reset week
+                            </button>
+                        )}
+                    </div>
+                    <div className="flex items-center gap-4">
+                        {onToggleSummerFridays && (
+                            <label className="flex items-center gap-2 text-xs text-foreground cursor-pointer select-none" title="Reduces weekly capacity target by 4h (36h instead of 40h)">
+                                <input
+                                    type="checkbox"
+                                    checked={summerFridays}
+                                    onChange={(e) => onToggleSummerFridays(e.target.checked)}
+                                    className="h-3.5 w-3.5 accent-primary"
+                                />
+                                Summer Fridays (-4h)
+                            </label>
+                        )}
                         <button
                             type="button"
-                            onClick={onCopyPreviousWeek}
-                            disabled={alreadyCopiedThisWeek}
-                            className="inline-flex items-center gap-1.5 text-xs font-medium text-foreground border border-input rounded-md px-2.5 py-1.5 hover:bg-muted transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent"
-                            title={alreadyCopiedThisWeek
-                                ? 'Already copied · reset the week to copy again'
-                                : "Duplicate last week's non-time-off entries into this week"}
+                            onClick={() => setShowExtended(v => !v)}
+                            className={`inline-flex items-center gap-1.5 text-xs font-medium rounded-md px-2.5 py-1.5 border transition-colors ${showExtended ? 'bg-primary text-primary-foreground border-primary' : 'text-foreground border-input hover:bg-muted'}`}
+                            title={showExtended ? 'Collapse to Mon–Fri, 7am–7pm (standard workweek)' : 'Expand to full week (Sat/Sun) + off-hours 5am–11pm · for back-fill, holidays, occasional overtime'}
                         >
-                            <GripVertical className="h-3 w-3 rotate-90 text-muted-foreground" />
-                            {alreadyCopiedThisWeek ? 'Already copied' : 'Copy previous week'}
+                            <Sunrise className="h-3 w-3" />
+                            {showExtended ? 'Standard 5-day' : 'Weekend + off-hours'}
                         </button>
-                    )}
-                    {onResetWeek && (
-                        <button
-                            type="button"
-                            onClick={() => {
-                                const confirmed = window.confirm(`Reset this week? All ${weekEntries.length} entries for the current week will be deleted. This can't be undone.`)
-                                if (confirmed) onResetWeek()
-                            }}
-                            className="inline-flex items-center gap-1.5 text-xs font-medium text-destructive border border-input rounded-md px-2.5 py-1.5 hover:bg-destructive-soft transition-colors"
-                            title="Delete all entries for this week (undoable after refresh · mock data)"
-                            disabled={weekEntries.length === 0}
-                        >
-                            <RotateCcw className="h-3 w-3" />
-                            Reset week
-                        </button>
-                    )}
-                </div>
-                <div className="flex items-center gap-4">
-                    {onToggleSummerFridays && (
-                        <label className="flex items-center gap-2 text-xs text-foreground cursor-pointer select-none" title="Reduces weekly capacity target by 4h (36h instead of 40h)">
-                            <input
-                                type="checkbox"
-                                checked={summerFridays}
-                                onChange={(e) => onToggleSummerFridays(e.target.checked)}
-                                className="h-3.5 w-3.5 accent-primary"
-                            />
-                            Summer Fridays (-4h)
-                        </label>
-                    )}
-                    <button
-                        type="button"
-                        onClick={() => setShowExtended(v => !v)}
-                        className={`inline-flex items-center gap-1.5 text-xs font-medium rounded-md px-2.5 py-1.5 border transition-colors ${showExtended ? 'bg-primary text-primary-foreground border-primary' : 'text-foreground border-input hover:bg-muted'}`}
-                        title={showExtended ? 'Collapse to Mon–Fri, 7am–7pm (standard workweek)' : 'Expand to full week (Sat/Sun) + off-hours 5am–11pm · for back-fill, holidays, occasional overtime'}
-                    >
-                        <Sunrise className="h-3 w-3" />
-                        {showExtended ? 'Standard 5-day' : 'Weekend + off-hours'}
-                    </button>
+                    </div>
                 </div>
             </div>
 
