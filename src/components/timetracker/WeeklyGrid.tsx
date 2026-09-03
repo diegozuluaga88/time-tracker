@@ -611,9 +611,13 @@ function EntryBlock({ entry, startMin, durationMin, colIndex, colCount, dayStart
     // TT.7 · Diego 2026-09-03 · aumentada opacidad del bg (era /12 y /10 ·
     // texto interno se leía muy sutil). Ahora /25 billable y /20 internal
     // con hover /35-/30 · legibilidad significativamente mejor.
+    // TT.32 · Diego 2026-09-03 · entry blocks opacos (bg-card) para parecerse
+    // a las cards del DS Strata · antes bg-success/25 los hacía semi-transparentes
+    // y el bg del grid se veía a través. Diferenciación billable/internal ahora
+    // vía border semantic + el rail izquierdo colorido (project hue).
     const tone = entry.billable
-        ? 'bg-success/25 border-success/50 hover:bg-success/35'
-        : 'bg-info/20 border-info/50 hover:bg-info/30'
+        ? 'bg-card border-success/50 hover:border-success'
+        : 'bg-card border-info/50 hover:border-info'
     const accent = entry.billable ? 'text-success' : 'text-info'
     const iconTone = entry.billable ? 'text-success' : 'text-info'
     // TT.7 · Diego 2026-09-03 · project chip · pill con el HSL hue del
