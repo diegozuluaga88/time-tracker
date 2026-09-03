@@ -328,7 +328,6 @@ export default function TimeEntryForm({ isOpen, onClose, date, entry, allEntries
                                         >
                                             <Save className="h-4 w-4" />
                                             {isEdit ? 'Update' : 'Save'}
-                                            <kbd className="text-[10px] font-mono opacity-70">⌘↵</kbd>
                                         </button>
                                     </div>
                                 </div>
