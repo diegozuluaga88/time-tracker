@@ -397,48 +397,49 @@ export default function WeeklyGrid({
                 </div>
             </div>
 
-            {/* TT.26 · Diego 2026-09-03 · header + body dentro del MISMO scroll
-                container · antes el body tenía scrollbar y el header no, las
-                columnas del body quedaban ~15px más angostas → desalineación.
-                Ahora el day header es sticky top-0 dentro del scroll · el
-                scrollbar afecta a ambos iguales · columnas SIEMPRE alineadas. */}
-            <div ref={scrollRef} className="overflow-y-auto" style={{ maxHeight: 'min(70vh, 640px)' }}>
-                {/* Day headers · sticky top */}
-                <div className="grid border-b border-border bg-muted/30 sticky top-0 z-30" style={{ gridTemplateColumns: `60px repeat(${dayCount}, minmax(0, 1fr))` }}>
-                    <div className="border-r border-border" />
-                    {visibleDays.map((iso, i) => {
-                        const isToday = iso === todayIso
-                        const isWeekend = i >= 5
-                        const dayEntries = weekEntries.filter(e => e.date === iso)
-                        const dayHours = sumHours(dayEntries)
-                        return (
-                            <div key={iso} className={`group/day relative px-2 py-1.5 flex items-baseline justify-center gap-1.5 border-r border-border last:border-r-0 ${isToday ? 'bg-primary-soft' : ''} ${isWeekend ? 'opacity-60' : ''}`}>
-                                {/* TT.15 · header 1 line · MON 31 · 7.8h · antes 3 lines (~72px), ahora ~28px */}
-                                <span className={`text-[10px] uppercase tracking-wider ${isToday ? 'font-bold text-foreground' : 'font-semibold text-muted-foreground'}`}>{DAY_LABELS[i]}</span>
-                                <span className={`text-sm tabular-nums leading-none ${isToday ? 'font-bold text-foreground' : 'font-semibold text-foreground'}`}>{new Date(iso).getDate()}</span>
-                                <span className="text-[10px] text-muted-foreground tabular-nums">· {dayHours > 0 ? `${dayHours.toFixed(1)}h` : '—'}</span>
-                                {/* TT.9 · reset day · hover-reveal icon-button en el header */}
-                                {onResetDay && dayEntries.length > 0 && (
-                                    <button
-                                        type="button"
-                                        onClick={(e) => {
-                                            e.stopPropagation()
-                                            const confirmed = window.confirm(`Reset ${DAY_LABELS[i]} ${new Date(iso).getDate()}? All ${dayEntries.length} entr${dayEntries.length === 1 ? 'y' : 'ies'} for this day will be deleted.`)
-                                            if (confirmed) onResetDay(iso)
-                                        }}
-                                        className="absolute top-1 right-1 opacity-0 group-hover/day:opacity-100 p-1 rounded-md text-destructive hover:bg-destructive-soft transition-all"
-                                        title={`Delete ${dayEntries.length} entr${dayEntries.length === 1 ? 'y' : 'ies'} for ${DAY_LABELS[i]}`}
-                                        aria-label={`Reset ${DAY_LABELS[i]}`}
-                                    >
-                                        <Trash2 className="h-3 w-3" />
-                                    </button>
-                                )}
-                            </div>
-                        )
-                    })}
-                </div>
+            {/* TT.35 · Diego 2026-09-03 · header FUERA del scroll · body scrolls
+                independiente. Antes (TT.26) el header era sticky dentro del
+                scroll · un entry con top=0 quedaba visualmente detrás del
+                header pero con z-index en algunos angles se veía superpuesto.
+                Ahora: 2 wrappers separados · el header wrapper reserva el
+                mismo gutter que el body via `scrollbar-gutter: stable` en
+                ambos · columnas siempre alineadas independiente del scrollbar. */}
+            <div className="grid border-b border-border bg-muted/30" style={{ gridTemplateColumns: `60px repeat(${dayCount}, minmax(0, 1fr))`, scrollbarGutter: 'stable', overflowY: 'scroll' }}>
+                <div className="border-r border-border" />
+                {visibleDays.map((iso, i) => {
+                    const isToday = iso === todayIso
+                    const isWeekend = i >= 5
+                    const dayEntries = weekEntries.filter(e => e.date === iso)
+                    const dayHours = sumHours(dayEntries)
+                    return (
+                        <div key={iso} className={`group/day relative px-2 py-1.5 flex items-baseline justify-center gap-1.5 border-r border-border last:border-r-0 ${isToday ? 'bg-primary-soft' : ''} ${isWeekend ? 'opacity-60' : ''}`}>
+                            {/* TT.15 · header 1 line · MON 31 · 7.8h · antes 3 lines (~72px), ahora ~28px */}
+                            <span className={`text-[10px] uppercase tracking-wider ${isToday ? 'font-bold text-foreground' : 'font-semibold text-muted-foreground'}`}>{DAY_LABELS[i]}</span>
+                            <span className={`text-sm tabular-nums leading-none ${isToday ? 'font-bold text-foreground' : 'font-semibold text-foreground'}`}>{new Date(iso).getDate()}</span>
+                            <span className="text-[10px] text-muted-foreground tabular-nums">· {dayHours > 0 ? `${dayHours.toFixed(1)}h` : '—'}</span>
+                            {/* TT.9 · reset day · hover-reveal icon-button en el header */}
+                            {onResetDay && dayEntries.length > 0 && (
+                                <button
+                                    type="button"
+                                    onClick={(e) => {
+                                        e.stopPropagation()
+                                        const confirmed = window.confirm(`Reset ${DAY_LABELS[i]} ${new Date(iso).getDate()}? All ${dayEntries.length} entr${dayEntries.length === 1 ? 'y' : 'ies'} for this day will be deleted.`)
+                                        if (confirmed) onResetDay(iso)
+                                    }}
+                                    className="absolute top-1 right-1 opacity-0 group-hover/day:opacity-100 p-1 rounded-md text-destructive hover:bg-destructive-soft transition-all"
+                                    title={`Delete ${dayEntries.length} entr${dayEntries.length === 1 ? 'y' : 'ies'} for ${DAY_LABELS[i]}`}
+                                    aria-label={`Reset ${DAY_LABELS[i]}`}
+                                >
+                                    <Trash2 className="h-3 w-3" />
+                                </button>
+                            )}
+                        </div>
+                    )
+                })}
+            </div>
 
-                {/* Body · time-axis + day cols */}
+            {/* Body scroll container · scrollbar-gutter reserva mismo ancho que el header · overflow-hidden en horizontal clip entries que salgan visualmente */}
+            <div ref={scrollRef} className="overflow-y-auto overflow-x-hidden" style={{ maxHeight: 'min(70vh, 640px)', scrollbarGutter: 'stable' }}>
                 <div ref={gridRef} className="grid relative" style={{ gridTemplateColumns: `60px repeat(${dayCount}, minmax(0, 1fr))`, height: totalHeight }}>
                     {/* Time axis · TT.14 · primer hour label sin translate-y-1/2
                         (se cortaba 6px por arriba del scroll container). Resto
