@@ -523,11 +523,20 @@ function EntryBlock({ entry, startMin, durationMin, colIndex, colCount, dayStart
     // Rail: soft HSL bar left · deterministic per project · no hex hardcoded.
     const railStyle = project ? { background: `hsl(${hue} 55% 55% / 0.85)` } : undefined
 
+    // TT.7 · Diego 2026-09-03 · aumentada opacidad del bg (era /12 y /10 ·
+    // texto interno se leía muy sutil). Ahora /25 billable y /20 internal
+    // con hover /35-/30 · legibilidad significativamente mejor.
     const tone = entry.billable
-        ? 'bg-success/12 border-success/40 hover:bg-success/22'
-        : 'bg-info/10 border-info/40 hover:bg-info/20'
+        ? 'bg-success/25 border-success/50 hover:bg-success/35'
+        : 'bg-info/20 border-info/50 hover:bg-info/30'
     const accent = entry.billable ? 'text-success' : 'text-info'
     const iconTone = entry.billable ? 'text-success' : 'text-info'
+    // TT.7 · Diego 2026-09-03 · project chip · pill con el HSL hue del
+    // project (mismo hash que el rail izquierdo) · reemplaza el project
+    // name como text · más reconocible + compacto.
+    const chipBgStyle = project ? { background: `hsl(${hue} 55% 55% / 0.20)`, borderColor: `hsl(${hue} 55% 45% / 0.35)`, color: `hsl(${hue} 60% 25%)` } : undefined
+    const chipBgStyleDark = project ? { color: `hsl(${hue} 55% 75%)` } : undefined
+    void chipBgStyleDark // reserved for dark mode inline overrides (Strata tokens handle base)
 
     const hours = (durationMin / 60).toFixed(2).replace(/\.?0+$/, '')
     const label = taskType ? formatTaskLabel(taskType, entry.completionState) : 'Untagged'
@@ -626,41 +635,42 @@ function EntryBlock({ entry, startMin, durationMin, colIndex, colCount, dayStart
                     <span className="text-[10px] font-mono tabular-nums text-foreground/80 shrink-0">{hours}h</span>
                 </div>
             ) : isMedium ? (
-                /* MEDIUM (44-72px): icon + label row + time/project row */
+                /* MEDIUM (44-72px): icon + label row + project chip + time row */
                 <div className="pl-2 pr-1.5 py-1 pointer-events-none flex flex-col h-full min-h-0">
                     <div className="flex items-center gap-1.5 min-w-0">
                         <Icon className={`h-3 w-3 shrink-0 ${iconTone}`} />
                         <span className={`text-[11px] font-semibold truncate flex-1 ${accent}`}>{label}</span>
-                        <span className="text-[10px] font-mono tabular-nums text-foreground/80 shrink-0">{hours}h</span>
+                        <span className="text-[10px] font-mono tabular-nums text-foreground shrink-0">{hours}h</span>
                     </div>
-                    <div className="mt-auto flex items-center gap-1 text-[9px] font-mono tabular-nums text-muted-foreground min-w-0">
-                        <span className="shrink-0">{formatTimeOfDay(startMin)}</span>
-                        {!isCompactWidth && project && (
-                            <>
-                                <span className="opacity-40 shrink-0">·</span>
-                                <span className="truncate font-sans not-italic">{project.name}</span>
-                            </>
-                        )}
+                    {project && !isCompactWidth && (
+                        <div className="mt-1">
+                            <ProjectChip name={project.name} style={chipBgStyle} />
+                        </div>
+                    )}
+                    <div className="mt-auto text-[9px] font-mono tabular-nums text-foreground/70">
+                        {formatTimeOfDay(startMin)}
                     </div>
                 </div>
             ) : (
-                /* FULL (≥72px): icon header + label + project + memo (if space) + time footer */
-                <div className="pl-2 pr-1.5 py-1.5 pointer-events-none flex flex-col h-full min-h-0">
+                /* FULL (≥72px): icon header + label + project chip + memo + time footer */
+                <div className="pl-2 pr-1.5 py-1.5 pointer-events-none flex flex-col h-full min-h-0 gap-1">
                     <div className="flex items-center gap-1.5 min-w-0">
                         <Icon className={`h-3.5 w-3.5 shrink-0 ${iconTone}`} />
                         <span className={`text-[11px] font-semibold truncate flex-1 ${accent}`}>{label}</span>
-                        <span className="text-[10px] font-mono tabular-nums text-foreground/80 shrink-0">{hours}h</span>
+                        <span className="text-[10px] font-mono tabular-nums text-foreground shrink-0">{hours}h</span>
                     </div>
-                    {project && !isCompactWidth && (
-                        <div className="text-[10px] text-muted-foreground truncate mt-0.5">{project.name}</div>
-                    )}
-                    {project && isCompactWidth && (
-                        <div className="text-[9px] text-muted-foreground truncate mt-0.5">{project.client}</div>
+                    {project && (
+                        <div>
+                            <ProjectChip
+                                name={isCompactWidth ? project.client : project.name}
+                                style={chipBgStyle}
+                            />
+                        </div>
                     )}
                     {height > 90 && entry.memo && !isVeryCompact && (
-                        <div className="text-[10px] text-muted-foreground line-clamp-2 mt-1 leading-tight">{entry.memo}</div>
+                        <div className="text-[10px] text-foreground/75 line-clamp-2 leading-tight">{entry.memo}</div>
                     )}
-                    <div className="mt-auto text-[9px] font-mono tabular-nums text-muted-foreground pt-1">
+                    <div className="mt-auto text-[9px] font-mono tabular-nums text-foreground/70">
                         {formatTimeOfDay(startMin)} – {formatTimeOfDay(startMin + durationMin)}
                     </div>
                 </div>
@@ -674,6 +684,23 @@ function EntryBlock({ entry, startMin, durationMin, colIndex, colCount, dayStart
                 aria-label="Resize entry"
             />
         </div>
+    )
+}
+
+// ============================================================
+// ProjectChip · TT.7 · pill compacta con el HSL hue del project.
+// Inline style para el bg (deterministic per project) · text
+// foreground para respetar dark/light mode del DS.
+// ============================================================
+function ProjectChip({ name, style }: { name: string; style?: React.CSSProperties }) {
+    return (
+        <span
+            className="inline-flex items-center rounded-full border px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider truncate max-w-full"
+            style={style}
+            title={name}
+        >
+            <span className="truncate">{name}</span>
+        </span>
     )
 }
 
