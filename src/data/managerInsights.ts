@@ -387,3 +387,128 @@ export function buildAttentionItems(
     }
     return items.slice(0, 6)
 }
+
+// ============================================================
+// TT.41 · Historical team trend (weeks back) para HistoryTab
+// ============================================================
+export interface WeekTrendPoint {
+    weekMondayIso: string
+    weekLabel: string      // 'Aug 24' etc.
+    totalHours: number     // team total
+    billableHours: number
+    internalHours: number
+    capacity: number       // suma capacities · afectado por summer fri
+    utilizationPercent: number
+    activeDesigners: number  // designers con >0h esa semana
+}
+
+/** Team-wide utilization + billable ratio · últimas N semanas (default 8). */
+export function buildTeamWeeklyTrend(
+    currentMondayIso: string,
+    allEntries: TimeEntry[],
+    weeksBack = 8,
+    summerFridaysActive = false
+): WeekTrendPoint[] {
+    const out: WeekTrendPoint[] = []
+    for (let w = weeksBack - 1; w >= 0; w--) {
+        const monday = addDaysIso(currentMondayIso, -7 * w)
+        const sunday = addDaysIso(monday, 6)
+        let total = 0, billable = 0, internal = 0
+        const activeSet = new Set<string>()
+        for (const e of allEntries) {
+            if (e.date < monday || e.date > sunday) continue
+            total += e.durationMinutes
+            if (e.billable) billable += e.durationMinutes; else internal += e.durationMinutes
+            activeSet.add(e.designerId)
+        }
+        const baseCapPerDesigner = summerFridaysActive ? 36 : 40
+        const capacity = DESIGNER_IDS.length * baseCapPerDesigner
+        const totalH = total / 60
+        const percent = capacity > 0 ? Math.round((totalH / capacity) * 100) : 0
+        const d = new Date(monday)
+        out.push({
+            weekMondayIso: monday,
+            weekLabel: d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+            totalHours: totalH,
+            billableHours: billable / 60,
+            internalHours: internal / 60,
+            capacity,
+            utilizationPercent: percent,
+            activeDesigners: activeSet.size,
+        })
+    }
+    return out
+}
+
+// ============================================================
+// TT.41 · Week-over-week per-designer comparison
+// ============================================================
+export interface WeekOverWeekRow {
+    designerId: DesignerId
+    thisWeekHours: number
+    lastWeekHours: number
+    deltaHours: number
+    deltaPercent: number   // 0 si lastWeek === 0
+    thisWeekBillable: number
+    lastWeekBillable: number
+    thisWeekPercent: number    // vs capacity
+    lastWeekPercent: number
+}
+
+export function buildWeekOverWeek(
+    currentMondayIso: string,
+    allEntries: TimeEntry[],
+    summerFridaysActive = false
+): WeekOverWeekRow[] {
+    const prevMonday = addDaysIso(currentMondayIso, -7)
+    const currTotals = buildDesignerWeekTotals(currentMondayIso, allEntries, summerFridaysActive)
+    const prevTotals = buildDesignerWeekTotals(prevMonday, allEntries, summerFridaysActive)
+    const prevMap = new Map(prevTotals.map(t => [t.designerId, t]))
+    return currTotals.map(curr => {
+        const prev = prevMap.get(curr.designerId)
+        const lastHours = prev?.total ?? 0
+        const delta = curr.total - lastHours
+        const deltaPct = lastHours > 0 ? Math.round((delta / lastHours) * 100) : 0
+        return {
+            designerId: curr.designerId,
+            thisWeekHours: curr.total,
+            lastWeekHours: lastHours,
+            deltaHours: delta,
+            deltaPercent: deltaPct,
+            thisWeekBillable: curr.billable,
+            lastWeekBillable: prev?.billable ?? 0,
+            thisWeekPercent: curr.percent,
+            lastWeekPercent: prev?.percent ?? 0,
+        }
+    })
+}
+
+// ============================================================
+// TT.41 · CSV export helpers para reports
+// ============================================================
+export function weekTotalsToCsv(rows: DesignerWeekTotals[], getName: (id: string) => string): string {
+    const header = ['Designer', 'Capacity (h)', 'Billable (h)', 'Internal (h)', 'Total (h)', 'Utilization %']
+    const lines = rows.map(r => [
+        getName(r.designerId),
+        r.capacity.toFixed(1),
+        r.billable.toFixed(1),
+        r.internal.toFixed(1),
+        r.total.toFixed(1),
+        r.percent,
+    ].join(','))
+    return [header.join(','), ...lines].join('\n')
+}
+
+export function weekTrendToCsv(rows: WeekTrendPoint[]): string {
+    const header = ['Week', 'Active designers', 'Capacity (h)', 'Total (h)', 'Billable (h)', 'Internal (h)', 'Utilization %']
+    const lines = rows.map(r => [
+        r.weekMondayIso,
+        r.activeDesigners,
+        r.capacity,
+        r.totalHours.toFixed(1),
+        r.billableHours.toFixed(1),
+        r.internalHours.toFixed(1),
+        r.utilizationPercent,
+    ].join(','))
+    return [header.join(','), ...lines].join('\n')
+}
