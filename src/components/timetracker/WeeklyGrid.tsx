@@ -16,15 +16,17 @@
 // No external DnD lib · custom Pointer Events API handlers.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { GripVertical, Palette, Users, Wrench, Sun, PenTool, Presentation, Boxes, FileText, Coffee } from 'lucide-react'
+import { GripVertical, Palette, Users, Wrench, Sun, PenTool, Presentation, Boxes, FileText, Coffee, Sunrise } from 'lucide-react'
 import { getProject } from '../../data/projects'
-import { getTaskType, formatTaskLabel, type TaskTypeGroup } from '../../data/taskTypes'
+import { getTaskType, formatTaskLabel } from '../../data/taskTypes'
 import {
     entriesForDesignerRange,
     DESIGNER_CAPACITY_HOURS,
     sumHours,
     CALENDAR_DAY_START_HOUR,
     CALENDAR_DAY_END_HOUR,
+    EXTENDED_DAY_START_HOUR,
+    EXTENDED_DAY_END_HOUR,
     CELL_HEIGHT_PX,
     MINUTES_PER_SLOT,
     formatTimeOfDay,
@@ -41,14 +43,18 @@ interface Props {
     onEditEntry: (entry: TimeEntry) => void
     onMoveEntry?: (entryId: string, newDateIso: string, newStartMinutes: number) => void
     onResizeEntry?: (entryId: string, newDurationMinutes: number) => void
+    // TT.5 · copy last week's entries into current week (Harvest pattern).
+    onCopyPreviousWeek?: () => void
+    // TT.5 · summer-Fridays capacity adjustment (-4h/week when active).
+    summerFridays?: boolean
+    onToggleSummerFridays?: (on: boolean) => void
     todayIso: string
 }
 
 const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
-const DAY_START_MIN = CALENDAR_DAY_START_HOUR * 60
-const DAY_END_MIN = CALENDAR_DAY_END_HOUR * 60
-const TOTAL_MINUTES = DAY_END_MIN - DAY_START_MIN
-const TOTAL_HEIGHT = (TOTAL_MINUTES / MINUTES_PER_SLOT) * CELL_HEIGHT_PX
+// TT.5 · Diego 2026-09-03 · start/end minutes ahora dinámicos según toggle
+// "Extended hours". Default 7am-7pm · extended 5am-11pm. Doc explicita
+// permite cualquier hora · el toggle mantiene el UI limpio por default.
 const HOUR_HEIGHT = CELL_HEIGHT_PX * 4 // 4 × 15-min = 1 hour = 48px
 
 // TT.3 · Diego 2026-09-03 · task-type icon map. Reconocibilidad visual
@@ -103,12 +109,23 @@ interface PositionedEntry extends TimeEntry {
 }
 
 export default function WeeklyGrid({
-    designerId, weekMondayIso, allEntries, onAddEntry, onEditEntry, onMoveEntry, onResizeEntry, todayIso,
+    designerId, weekMondayIso, allEntries, onAddEntry, onEditEntry, onMoveEntry, onResizeEntry,
+    onCopyPreviousWeek, summerFridays = false, onToggleSummerFridays, todayIso,
 }: Props) {
     const gridRef = useRef<HTMLDivElement>(null)
     const scrollRef = useRef<HTMLDivElement>(null)
     const [dragState, setDragState] = useState<DragState>({ kind: 'idle' })
     const [nowMinutes, setNowMinutes] = useState(getCurrentMinutes())
+    // TT.5 · toggle Extended hours (5am-11pm) vs Default (7am-7pm).
+    const [showExtended, setShowExtended] = useState(false)
+
+    // Computed range (default 7am-7pm · extended 5am-11pm).
+    const startHour = showExtended ? EXTENDED_DAY_START_HOUR : CALENDAR_DAY_START_HOUR
+    const endHour = showExtended ? EXTENDED_DAY_END_HOUR : CALENDAR_DAY_END_HOUR
+    const dayStartMin = startHour * 60
+    const dayEndMin = endHour * 60
+    const totalMinutes = dayEndMin - dayStartMin
+    const totalHeight = (totalMinutes / MINUTES_PER_SLOT) * CELL_HEIGHT_PX
 
     // Refresh current-time indicator every 60s
     useEffect(() => {
@@ -138,7 +155,9 @@ export default function WeeklyGrid({
     const totalHours = sumHours(weekEntries)
     const billableHours = sumHours(weekEntries.filter(e => e.billable))
     const internalHours = sumHours(weekEntries.filter(e => !e.billable))
-    const capacity = DESIGNER_CAPACITY_HOURS[designerId] ?? 40
+    // TT.5 · capacity respects summer-Fridays (-4h/week when active).
+    const baseCapacity = DESIGNER_CAPACITY_HOURS[designerId] ?? 40
+    const capacity = summerFridays ? Math.max(0, baseCapacity - 4) : baseCapacity
     const pct = Math.round((totalHours / capacity) * 100)
 
     // Hour labels for time-axis
@@ -150,9 +169,9 @@ export default function WeeklyGrid({
 
     // Convert absolute Y (relative to day col) → snapped minutes
     const yToMinutes = useCallback((y: number): number => {
-        const rawMin = DAY_START_MIN + (y / CELL_HEIGHT_PX) * MINUTES_PER_SLOT
+        const rawMin = dayStartMin + (y / CELL_HEIGHT_PX) * MINUTES_PER_SLOT
         const snapped = Math.round(rawMin / MINUTES_PER_SLOT) * MINUTES_PER_SLOT
-        return Math.max(DAY_START_MIN, Math.min(DAY_END_MIN, snapped))
+        return Math.max(dayStartMin, Math.min(dayEndMin, snapped))
     }, [])
 
     // Locate day column at pointer X (returns index 0..6 or null)
@@ -247,16 +266,16 @@ export default function WeeklyGrid({
         }
     }, [dragState, xToDayIndex, yToMinutes, week, onMoveEntry, onResizeEntry])
 
-    // Auto-scroll to 8am on mount (skip early hours by default)
+    // TT.2 · Auto-scroll to 8am on mount + re-scroll when toggling extended.
     useEffect(() => {
         if (scrollRef.current) {
-            scrollRef.current.scrollTop = ((8 * 60 - DAY_START_MIN) / MINUTES_PER_SLOT) * CELL_HEIGHT_PX
+            scrollRef.current.scrollTop = Math.max(0, ((8 * 60 - dayStartMin) / MINUTES_PER_SLOT) * CELL_HEIGHT_PX)
         }
-    }, []) // once
+    }, [showExtended]) // eslint-disable-line react-hooks/exhaustive-deps
 
     return (
         <div className="rounded-2xl border border-border bg-card overflow-hidden">
-            {/* Week header · totals summary */}
+            {/* Week header · totals summary + toggles */}
             <div className="flex items-baseline justify-between px-5 py-4 border-b border-border gap-4 flex-wrap">
                 <div>
                     <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Week of</div>
@@ -267,6 +286,45 @@ export default function WeeklyGrid({
                     <SummaryStat label="Internal" hours={internalHours} tone="info" />
                     <SummaryStat label="Total" hours={totalHours} tone="foreground" />
                     <SummaryStat label={`Capacity (${capacity}h)`} value={`${pct}%`} tone={pct >= 110 ? 'ai' : pct >= 80 ? 'success' : pct >= 70 ? 'warning' : 'destructive'} />
+                </div>
+            </div>
+
+            {/* TT.5 · toolbar · Copy previous week + Summer Fridays + Extended hours */}
+            <div className="flex items-center justify-between px-5 py-2 border-b border-border bg-muted/20 gap-3 flex-wrap">
+                <div className="flex items-center gap-2">
+                    {onCopyPreviousWeek && (
+                        <button
+                            type="button"
+                            onClick={onCopyPreviousWeek}
+                            className="inline-flex items-center gap-1.5 text-xs font-medium text-foreground border border-input rounded-md px-2.5 py-1.5 hover:bg-muted transition-colors"
+                            title="Duplicate last week's non-time-off entries into this week"
+                        >
+                            <GripVertical className="h-3 w-3 rotate-90 text-muted-foreground" />
+                            Copy previous week
+                        </button>
+                    )}
+                </div>
+                <div className="flex items-center gap-4">
+                    {onToggleSummerFridays && (
+                        <label className="flex items-center gap-2 text-xs text-foreground cursor-pointer select-none" title="Reduces weekly capacity target by 4h (36h instead of 40h)">
+                            <input
+                                type="checkbox"
+                                checked={summerFridays}
+                                onChange={(e) => onToggleSummerFridays(e.target.checked)}
+                                className="h-3.5 w-3.5 accent-primary"
+                            />
+                            Summer Fridays (-4h)
+                        </label>
+                    )}
+                    <button
+                        type="button"
+                        onClick={() => setShowExtended(v => !v)}
+                        className={`inline-flex items-center gap-1.5 text-xs font-medium rounded-md px-2.5 py-1.5 border transition-colors ${showExtended ? 'bg-primary text-primary-foreground border-primary' : 'text-foreground border-input hover:bg-muted'}`}
+                        title={showExtended ? 'Collapse to 7am–7pm default' : 'Expand to 5am–11pm (off-hours logging)'}
+                    >
+                        <Sunrise className="h-3 w-3" />
+                        {showExtended ? 'Standard hours' : 'Extended hours'}
+                    </button>
                 </div>
             </div>
 
@@ -290,14 +348,14 @@ export default function WeeklyGrid({
 
             {/* Body: time-axis + day cols · scrollable */}
             <div ref={scrollRef} className="overflow-y-auto" style={{ maxHeight: 'min(70vh, 640px)' }}>
-                <div ref={gridRef} className="grid relative" style={{ gridTemplateColumns: `60px repeat(7, minmax(0, 1fr))`, height: TOTAL_HEIGHT }}>
+                <div ref={gridRef} className="grid relative" style={{ gridTemplateColumns: `60px repeat(7, minmax(0, 1fr))`, height: totalHeight }}>
                     {/* Time axis */}
                     <div className="relative border-r border-border">
                         {hourLabels.map(h => (
                             <div
                                 key={h}
                                 className="absolute right-2 text-[10px] font-mono tabular-nums text-muted-foreground -translate-y-1/2 pr-1"
-                                style={{ top: ((h * 60 - DAY_START_MIN) / MINUTES_PER_SLOT) * CELL_HEIGHT_PX }}
+                                style={{ top: ((h * 60 - dayStartMin) / MINUTES_PER_SLOT) * CELL_HEIGHT_PX }}
                             >
                                 {formatTimeOfDayShort(h * 60)}
                             </div>
@@ -317,7 +375,7 @@ export default function WeeklyGrid({
                                 onPointerMove={onColPointerMove}
                                 onPointerUp={onColPointerUp}
                                 className={`relative border-r border-border last:border-r-0 select-none cursor-crosshair ${isToday ? 'bg-primary-soft/40 ring-2 ring-inset ring-primary/40' : ''} ${isWeekend ? 'opacity-60' : ''}`}
-                                style={{ minHeight: TOTAL_HEIGHT }}
+                                style={{ minHeight: totalHeight }}
                                 aria-label={`Day column ${DAY_LABELS[dayIndex]} ${new Date(iso).getDate()}`}
                             >
                                 {/* Hour grid lines */}
@@ -325,7 +383,7 @@ export default function WeeklyGrid({
                                     <div
                                         key={h}
                                         className="absolute inset-x-0 border-t border-border/60 pointer-events-none"
-                                        style={{ top: ((h * 60 - DAY_START_MIN) / MINUTES_PER_SLOT) * CELL_HEIGHT_PX }}
+                                        style={{ top: ((h * 60 - dayStartMin) / MINUTES_PER_SLOT) * CELL_HEIGHT_PX }}
                                     />
                                 ))}
                                 {/* Half-hour tick (fainter) */}
@@ -333,7 +391,7 @@ export default function WeeklyGrid({
                                     <div
                                         key={`half-${h}`}
                                         className="absolute inset-x-0 border-t border-border/25 pointer-events-none"
-                                        style={{ top: (((h * 60 + 30) - DAY_START_MIN) / MINUTES_PER_SLOT) * CELL_HEIGHT_PX }}
+                                        style={{ top: (((h * 60 + 30) - dayStartMin) / MINUTES_PER_SLOT) * CELL_HEIGHT_PX }}
                                     />
                                 ))}
 
@@ -352,6 +410,7 @@ export default function WeeklyGrid({
                                             durationMin={durationMin}
                                             colIndex={entry.colIndex}
                                             colCount={entry.colCount}
+                                            dayStartMin={dayStartMin}
                                             onEdit={() => onEditEntry(entry)}
                                             onMoveStart={(grabOffsetMin) => {
                                                 setDragState({
@@ -380,7 +439,7 @@ export default function WeeklyGrid({
 
                                 {/* Ghost block during CREATE */}
                                 {dragState.kind === 'create' && dragState.dayIndex === dayIndex && (
-                                    <GhostBlock startMin={dragState.startMin} endMin={dragState.currentMin} kind="create" />
+                                    <GhostBlock startMin={dragState.startMin} endMin={dragState.currentMin} kind="create" dayStartMin={dayStartMin} />
                                 )}
 
                                 {/* Ghost block during MOVE (following pointer) */}
@@ -393,15 +452,16 @@ export default function WeeklyGrid({
                                             endMin={dragState.currentStartMin + orig.durationMinutes}
                                             kind="move"
                                             label={getTaskType(orig.taskTypeId)?.label ?? 'Entry'}
+                                            dayStartMin={dayStartMin}
                                         />
                                     )
                                 })()}
 
                                 {/* Current time indicator */}
-                                {isToday && nowMinutes >= DAY_START_MIN && nowMinutes <= DAY_END_MIN && (
+                                {isToday && nowMinutes >= dayStartMin && nowMinutes <= dayEndMin && (
                                     <div
                                         className="absolute inset-x-0 pointer-events-none z-20"
-                                        style={{ top: ((nowMinutes - DAY_START_MIN) / MINUTES_PER_SLOT) * CELL_HEIGHT_PX }}
+                                        style={{ top: ((nowMinutes - dayStartMin) / MINUTES_PER_SLOT) * CELL_HEIGHT_PX }}
                                     >
                                         <div className="relative h-0 border-t-2 border-destructive">
                                             <div className="absolute -left-1 -top-1.5 h-3 w-3 rounded-full bg-destructive" />
@@ -432,15 +492,16 @@ interface EntryBlockProps {
     durationMin: number
     colIndex: number
     colCount: number
+    dayStartMin: number
     onEdit: () => void
     onMoveStart: (grabOffsetMin: number) => void
     onResizeStart: () => void
 }
 
-function EntryBlock({ entry, startMin, durationMin, colIndex, colCount, onEdit, onMoveStart, onResizeStart }: EntryBlockProps) {
+function EntryBlock({ entry, startMin, durationMin, colIndex, colCount, dayStartMin, onEdit, onMoveStart, onResizeStart }: EntryBlockProps) {
     const project = getProject(entry.projectId)
     const taskType = getTaskType(entry.taskTypeId)
-    const top = ((startMin - DAY_START_MIN) / MINUTES_PER_SLOT) * CELL_HEIGHT_PX
+    const top = ((startMin - dayStartMin) / MINUTES_PER_SLOT) * CELL_HEIGHT_PX
     const height = Math.max(CELL_HEIGHT_PX, (durationMin / MINUTES_PER_SLOT) * CELL_HEIGHT_PX)
     const widthPct = 100 / colCount
     const leftPct = colIndex * widthPct
@@ -451,6 +512,11 @@ function EntryBlock({ entry, startMin, durationMin, colIndex, colCount, onEdit, 
     const isVeryCompact = colCount >= 3
     const isShort = height < 44
     const isMedium = height >= 44 && height < 72
+    // TT.5 · overlap warning · colCount > 1 = designer tiene 2+ entries en
+    // la misma franja. Doc no explicita si es permitido, pero el spirit
+    // del cliente es "no limits enforced, coaching en dashboard". Aquí
+    // señalamos con ring warning sutil + badge micro top-left.
+    const isOverlapping = colCount > 1
 
     const Icon = getTaskIcon(entry.taskTypeId)
     const hue = project ? getProjectHue(project.id) : 0
@@ -505,6 +571,7 @@ function EntryBlock({ entry, startMin, durationMin, colIndex, colCount, onEdit, 
         label,
         project?.name,
         `${formatTimeOfDay(startMin)} – ${formatTimeOfDay(startMin + durationMin)} · ${hours}h`,
+        isOverlapping ? `Overlaps with ${colCount - 1} other entr${colCount - 1 === 1 ? 'y' : 'ies'} in this slot · was this a review or handoff?` : null,
         entry.memo,
         entry.billable ? 'Billable' : 'Internal',
     ].filter(Boolean).join(' · ')
@@ -517,7 +584,7 @@ function EntryBlock({ entry, startMin, durationMin, colIndex, colCount, onEdit, 
             tabIndex={0}
             aria-label={`Time entry ${label} · ${hours}h · ${formatTimeOfDay(startMin)} to ${formatTimeOfDay(startMin + durationMin)}`}
             onKeyDown={(e) => { if (e.key === 'Enter') onEdit() }}
-            className={`group absolute rounded-md border ${tone} cursor-grab active:cursor-grabbing shadow-sm hover:shadow-lg hover:z-40 transition-all overflow-hidden`}
+            className={`group absolute rounded-md border ${tone} cursor-grab active:cursor-grabbing shadow-sm hover:shadow-lg hover:z-40 transition-all overflow-hidden ${isOverlapping ? 'ring-1 ring-warning/40 ring-inset' : ''}`}
             style={{
                 top,
                 height,
@@ -527,6 +594,12 @@ function EntryBlock({ entry, startMin, durationMin, colIndex, colCount, onEdit, 
             }}
             title={tooltipText}
         >
+            {/* TT.5 · Overlap micro-badge top-left (opposite del deliverable ✓ que va top-right) */}
+            {isOverlapping && (
+                <div className="absolute top-0 left-0 bg-warning/80 text-white text-[8px] font-bold px-1 rounded-br-md pointer-events-none uppercase tracking-wider z-10">
+                    ⚠{colCount}
+                </div>
+            )}
             {/* Project color rail (deterministic HSL from project id · reconocibilidad) */}
             {project && (
                 <div className="absolute inset-y-0 left-0 w-[3px] rounded-l-md pointer-events-none" style={railStyle} />
@@ -607,8 +680,8 @@ function EntryBlock({ entry, startMin, durationMin, colIndex, colCount, onEdit, 
 // ============================================================
 // GhostBlock (drag preview)
 // ============================================================
-function GhostBlock({ startMin, endMin, kind, label }: { startMin: number; endMin: number; kind: 'create' | 'move'; label?: string }) {
-    const top = ((Math.min(startMin, endMin) - DAY_START_MIN) / MINUTES_PER_SLOT) * CELL_HEIGHT_PX
+function GhostBlock({ startMin, endMin, kind, label, dayStartMin }: { startMin: number; endMin: number; kind: 'create' | 'move'; label?: string; dayStartMin: number }) {
+    const top = ((Math.min(startMin, endMin) - dayStartMin) / MINUTES_PER_SLOT) * CELL_HEIGHT_PX
     const height = Math.abs(endMin - startMin) / MINUTES_PER_SLOT * CELL_HEIGHT_PX
     const durationMin = endMin - startMin
     const hours = (durationMin / 60).toFixed(2).replace(/\.?0+$/, '')
@@ -680,10 +753,13 @@ function getCurrentMinutes(): number {
 
 // Position entries within a day column · resolves start times + assigns
 // overlap columns (side-by-side rendering).
+// TT.5 · Auto-stack fallback usa 8am workday standard (no depende del
+// range visible del calendar toggle).
+const AUTO_STACK_START = 8 * 60
 function positionDay(dayEntries: TimeEntry[]): PositionedEntry[] {
     if (dayEntries.length === 0) return []
     // Auto-stack any entry that's missing an explicit start time.
-    let cursor = DAY_START_MIN
+    let cursor = AUTO_STACK_START
     const resolved: (TimeEntry & { resolvedStart: number })[] = []
     // Explicit-start entries first (sorted)
     const withStart = [...dayEntries].filter(e => e.startMinutesFromMidnight != null).sort((a, b) => (a.startMinutesFromMidnight ?? 0) - (b.startMinutesFromMidnight ?? 0))

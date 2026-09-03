@@ -15,6 +15,7 @@ import WeeklyGrid, { mondayOf } from './components/timetracker/WeeklyGrid'
 import TimeEntryForm from './components/timetracker/TimeEntryForm'
 import { TIME_ENTRIES, type TimeEntry, type DesignerId } from './data/timeEntries'
 import { TODAY_ISO } from './data/projects'
+import { getTaskType } from './data/taskTypes'
 import { coachingCopy } from './data/coachingCopy'
 
 interface Props {
@@ -37,6 +38,8 @@ export default function TimeTracker({ onLogout, onNavigate }: Props) {
     // TT.2 · pre-fill from drag-create
     const [formInitialDurationMin, setFormInitialDurationMin] = useState<number | undefined>()
     const [formInitialStartMin, setFormInitialStartMin] = useState<number | undefined>()
+    // TT.5 · summer-Fridays weekly capacity adjustment (per plan · doc lit).
+    const [summerFridays, setSummerFridays] = useState(false)
     const { toasts, addToast, dismissToast } = useToast()
 
     const handleAddEntry = (date: string, durationMinutes?: number, startMinutes?: number) => {
@@ -72,6 +75,39 @@ export default function TimeTracker({ onLogout, onNavigate }: Props) {
     const handleResizeEntry = (entryId: string, newDurationMinutes: number) => {
         setEntries(prev => prev.map(e => e.id === entryId ? { ...e, durationMinutes: newDurationMinutes } : e))
         addToast('info', `Duration updated to ${(newDurationMinutes / 60).toFixed(2).replace(/\.?0+$/, '')}h`)
+    }
+    // TT.5 · Copy previous week (Harvest pattern) · duplica entries no-time-off
+    // del week anterior en la current week (mismo weekday + start + duration
+    // + project + task, nuevos IDs). Skip time-off (holiday/pto/sick).
+    const handleCopyPreviousWeek = () => {
+        const prevMonday = shiftMonday(weekMonday, -7)
+        const prevSunday = shiftMonday(prevMonday, 6)
+        const prev = entries.filter(e => e.designerId === designerId && e.date >= prevMonday && e.date <= prevSunday)
+        const nonTimeOff = prev.filter(e => {
+            const t = getTaskType(e.taskTypeId)
+            return t?.group !== 'time-off'
+        })
+        if (nonTimeOff.length === 0) {
+            addToast('info', 'No entries to copy from last week.')
+            return
+        }
+        // Skip duplication if current week already has entries (evita overwrite).
+        const currentSunday = shiftMonday(weekMonday, 6)
+        const currentHas = entries.some(e => e.designerId === designerId && e.date >= weekMonday && e.date <= currentSunday)
+        if (currentHas) {
+            const confirmed = window.confirm(`This week already has entries. Copy last week's ${nonTimeOff.length} non-time-off entries anyway? (Existing entries will not be removed · duplicates may appear.)`)
+            if (!confirmed) return
+        }
+        const timestamp = Date.now()
+        const duplicated: TimeEntry[] = nonTimeOff.map((e, i) => ({
+            ...e,
+            id: `TE-COPY-${timestamp}-${i}`,
+            date: shiftMonday(weekMonday, dayDelta(prevMonday, e.date)),
+            deliverableComplete: false,
+            deliverableSentAt: undefined,
+        }))
+        setEntries(prev => [...prev, ...duplicated])
+        addToast('success', `Copied ${duplicated.length} entries from last week.`)
     }
     const handleDeliverableDispatched = (info: { entryId: string | null; projectId: string; salesRepName: string; timestampIso: string }) => {
         // Persist deliverableSentAt on the entry (if we can find it).
@@ -154,6 +190,9 @@ export default function TimeTracker({ onLogout, onNavigate }: Props) {
                                 onEditEntry={handleEditEntry}
                                 onMoveEntry={handleMoveEntry}
                                 onResizeEntry={handleResizeEntry}
+                                onCopyPreviousWeek={handleCopyPreviousWeek}
+                                summerFridays={summerFridays}
+                                onToggleSummerFridays={setSummerFridays}
                                 todayIso={TODAY_ISO}
                             />
                         ) : (
@@ -213,6 +252,10 @@ function shiftMonday(iso: string, days: number): string {
     const d = new Date(iso)
     d.setDate(d.getDate() + days)
     return d.toISOString().slice(0, 10)
+}
+// TT.5 · integer days between two ISO dates (a to b).
+function dayDelta(a: string, b: string): number {
+    return Math.round((new Date(b).getTime() - new Date(a).getTime()) / 86_400_000)
 }
 function formatMondayLabel(iso: string): string {
     const d = new Date(iso)

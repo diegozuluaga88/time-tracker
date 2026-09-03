@@ -258,12 +258,45 @@ function generateEntries(): TimeEntry[] {
         startMinutesFromMidnight: 13 * 60, // 1-4:30pm
     })
 
+    // TT.5 · off-hours edge case entries (para probar toggle "Extended hours").
+    // Doc explicita permite cualquier hora · weekend + past/future dating ok.
+    // Early client call before 7am (invisible en default range).
+    entries.push({
+        id: `TE-${String(seq++).padStart(5, '0')}`,
+        designerId: 'me',
+        date: isoDate(2), // Tue
+        projectId: 'PRJ-RS-2405',
+        taskTypeId: 'client-mtg',
+        memo: 'Early call · Meridian HQ · client timezone (East Coast, ES/Latam)',
+        durationMinutes: 60,
+        billable: true,
+        startMinutesFromMidnight: 6 * 60 + 30, // 6:30-7:30 AM
+    })
+    // Late evening deep-work session (invisible en default range).
+    entries.push({
+        id: `TE-${String(seq++).padStart(5, '0')}`,
+        designerId: 'me',
+        date: isoDate(3), // Mon
+        projectId: 'PRJ-OFC-3115',
+        taskTypeId: 'renderings',
+        completionState: 'v2',
+        memo: 'Evening render batch · Ferris showroom · queue overnight for morning client review',
+        durationMinutes: 120,
+        billable: true,
+        startMinutesFromMidnight: 19 * 60 + 30, // 7:30-9:30 PM
+    })
+
     return entries
 }
 
 // TT.2 · Constants exposed for WeeklyGrid rendering.
-export const CALENDAR_DAY_START_HOUR = 7  // 7am
-export const CALENDAR_DAY_END_HOUR = 19   // 7pm
+export const CALENDAR_DAY_START_HOUR = 7  // 7am · default range
+export const CALENDAR_DAY_END_HOUR = 19   // 7pm · default range
+// TT.5 · Diego 2026-09-03 · extended range para off-hours logging.
+// Doc explicita permite weekend + past/future dating + any hour.
+// Toggle en WeeklyGrid revela 5am-11pm cuando se necesita.
+export const EXTENDED_DAY_START_HOUR = 5   // 5am
+export const EXTENDED_DAY_END_HOUR = 23    // 11pm
 export const CELL_HEIGHT_PX = 12          // 12px per 15-min slot (48px per hour)
 export const MINUTES_PER_SLOT = 15
 

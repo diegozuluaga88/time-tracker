@@ -76,9 +76,18 @@ export default function TimeEntryForm({ isOpen, onClose, date, entry, allEntries
     }, [saveState, savedAt])
 
     // Task-type default billable when picked (respect explicit override).
+    // TT.5 · Diego 2026-09-03 · Holiday/PTO/Sick auto-fill duration a 8h
+    // (doc lit: "Holidays se loguean como 8h internal" sot.md:90).
+    // McKinley: "no quiero que tengan que log-on just to log holiday hours".
+    // Solo aplica en new entry para no sobrescribir edits del user.
     useEffect(() => {
         const t = getTaskType(taskTypeId)
-        if (t && !entry) setBillable(t.defaultBillable)
+        if (!t || entry) return
+        setBillable(t.defaultBillable)
+        // Auto-fill 8h for time-off types (holiday, PTO, sick) on new entries.
+        if (t.group === 'time-off') {
+            setDurationHHMM('8:00')
+        }
     }, [taskTypeId, entry])
 
     // Keyboard shortcuts (Cmd+Enter save, Esc close).
