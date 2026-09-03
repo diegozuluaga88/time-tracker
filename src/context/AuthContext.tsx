@@ -16,11 +16,11 @@ interface MockUser {
 
 // --- Demo Credentials ---
 
-// TT.36 · Diego 2026-09-03 · fullName Expert 1/2 → Designer 1/2 para el
-// demo Wurkwel · el rol relevante en time tracking es Designer, no Expert.
+// TT.38 · Diego 2026-09-03 · demo user es Design Manager (rol McKinley Miller
+// de Wurkwel · el que revisa timesheets del team en el Manager Dashboard).
 const DEMO_ACCOUNTS: Record<string, { password: string; fullName: string }> = {
-  'demo@agenticdream.com': { password: 'StrataDemo2026!', fullName: 'Designer 1' },
-  'test@goavanto.com': { password: 'StrataDemo2026!', fullName: 'Designer 2' },
+  'demo@agenticdream.com': { password: 'StrataDemo2026!', fullName: 'Design Manager' },
+  'test@goavanto.com': { password: 'StrataDemo2026!', fullName: 'Design Manager' },
 };
 
 const STORAGE_KEY = 'strata-demo-auth';
