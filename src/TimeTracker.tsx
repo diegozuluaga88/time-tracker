@@ -13,6 +13,9 @@ import Breadcrumbs from './components/Breadcrumbs'
 import { ToastContainer, useToast } from './components/AuthToast'
 import WeeklyGrid, { mondayOf } from './components/timetracker/WeeklyGrid'
 import TimeEntryForm from './components/timetracker/TimeEntryForm'
+// TT.6 · Diego 2026-09-03 · Manager Dashboard (Surface B) shipped.
+import TeamView from './components/timetracker/TeamView'
+import { getTeamMember } from './components/team/teamMembers'
 import { TIME_ENTRIES, type TimeEntry, type DesignerId } from './data/timeEntries'
 import { TODAY_ISO } from './data/projects'
 import { getTaskType } from './data/taskTypes'
@@ -196,7 +199,20 @@ export default function TimeTracker({ onLogout, onNavigate }: Props) {
                                 todayIso={TODAY_ISO}
                             />
                         ) : (
-                            <TeamViewPlaceholder />
+                            <TeamView
+                                weekMondayIso={weekMonday}
+                                allEntries={entries}
+                                todayIso={TODAY_ISO}
+                                summerFridaysActive={summerFridays}
+                                onSendDigest={(designerIds) => {
+                                    const names = designerIds.map(id => getTeamMember(id)?.name?.split(' ')[0] ?? id)
+                                    addToast('success', `Friday digest sent to ${names.length} designer${names.length === 1 ? '' : 's'}: ${names.join(', ')}`)
+                                }}
+                                onSendCoachingMessage={(designerId) => {
+                                    const person = getTeamMember(designerId)
+                                    addToast('info', `Check-in message drafted for ${person?.name ?? designerId} · opens in Action Center (mock)`)
+                                }}
+                            />
                         )}
                     </div>
                 </div>
@@ -234,19 +250,7 @@ function ModeButton({ active, onClick, icon: Icon, label, hint }: { active: bool
     )
 }
 
-function TeamViewPlaceholder() {
-    return (
-        <div className="flex flex-col items-center justify-center py-24 text-center">
-            <div className="h-14 w-14 rounded-2xl bg-muted flex items-center justify-center mb-4">
-                <Clock className="h-7 w-7 text-muted-foreground" />
-            </div>
-            <p className="text-sm font-semibold text-foreground">Team View coming in TT.2</p>
-            <p className="text-sm text-muted-foreground mt-1 max-w-md">
-                Utilization heatmap, missing-time digest, outlier coaching cards, and training-gap sparklines land in the next iteration.
-            </p>
-        </div>
-    )
-}
+// TT.6 · TeamViewPlaceholder removido · TeamView.tsx ahora shippea la surface B completa.
 
 function shiftMonday(iso: string, days: number): string {
     const d = new Date(iso)
