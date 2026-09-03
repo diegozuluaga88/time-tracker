@@ -79,6 +79,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (stored) {
         const parsed = JSON.parse(stored) as MockUser;
         if (parsed?.email) {
+          // TT.36.1 · re-hidratar fullName desde DEMO_ACCOUNTS · si el name
+          // cambió en el código (ej. Expert 1 → Designer 1), la sesión cached
+          // toma el valor nuevo sin necesidad de que el user haga sign out.
+          const freshAccount = DEMO_ACCOUNTS[parsed.email];
+          if (freshAccount && parsed.user_metadata?.full_name !== freshAccount.fullName) {
+            parsed.user_metadata = { full_name: freshAccount.fullName };
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(parsed));
+          }
           setUser(parsed);
         }
       }
