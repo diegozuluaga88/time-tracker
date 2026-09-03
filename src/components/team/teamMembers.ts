@@ -10,16 +10,16 @@ export interface TeamMember {
 // Sentinel for the current logged-in user (shown as "Me" in pickers).
 export const CURRENT_USER_ID = 'me'
 
-// Team list matches production Assign Feedback picker · adds the canonical
-// "me" (Diego Zuluaga) at top + the 4 visible team members from prod.
-// Legacy synthetic members kept for backward-compat con seeds existentes que
-// referencian ids antiguos (marcus, priya, etc).
+// TT.39 · Diego 2026-09-03 · nombres reemplazados por ficticios para el
+// demo Wurkwel · Diego pidió no usar nombres reales del team en la demo.
+// Los 4 members restantes (sarah, marcus, priya, daniel, elena, noah, tomas)
+// ya eran genéricos y quedan igual.
 export const TEAM_MEMBERS: TeamMember[] = [
-    { id: 'me',        name: 'Diego Zuluaga',   initials: 'DZ', role: 'Expert', online: true },
-    { id: 'carlos',    name: 'Carlos Cedeno',   initials: 'CC', role: 'User' },
-    { id: 'christian', name: 'Christian Mejia', initials: 'CM', role: 'User' },
-    { id: 'daniela',   name: 'Daniela Puerta',  initials: 'DP', role: 'User' },
-    { id: 'jennifer',  name: 'Jennifer Vargas', initials: 'JV', role: 'User' },
+    { id: 'me',        name: 'Alex Rivera',     initials: 'AR', role: 'Expert', online: true },
+    { id: 'carlos',    name: 'Kate Miller',     initials: 'KM', role: 'User' },
+    { id: 'christian', name: 'Ryan Chen',       initials: 'RC', role: 'User' },
+    { id: 'daniela',   name: 'Sofia Bennett',   initials: 'SB', role: 'User' },
+    { id: 'jennifer',  name: 'Emma Torres',     initials: 'ET', role: 'User' },
     // Legacy seeds (referenced by FeedbackBoard mock items)
     { id: 'sarah',     name: 'Sarah Johnson',   initials: 'SJ', role: 'User' },
     { id: 'marcus',    name: 'Marcus Webb',     initials: 'MW', role: 'User' },
