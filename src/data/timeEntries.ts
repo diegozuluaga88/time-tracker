@@ -309,12 +309,14 @@ export function formatTimeOfDay(min: number): string {
     return `${h12}:${m.toString().padStart(2, '0')} ${ampm}`
 }
 
-/** Compact "9:30" for header labels. */
+/** Compact "8 AM" / "12 PM" for time-axis labels · matches Google Cal
+ *  conventional format · más legible que "8a" (Diego 2026-09-03).
+ */
 export function formatTimeOfDayShort(min: number): string {
     const h = Math.floor(min / 60)
-    const ampm = h >= 12 ? 'p' : 'a'
+    const ampm = h >= 12 ? 'PM' : 'AM'
     const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h
-    return `${h12}${ampm}`
+    return `${h12} ${ampm}`
 }
 
 export const TIME_ENTRIES: TimeEntry[] = generateEntries()
