@@ -164,14 +164,32 @@ export default function WeeklyGrid({
         [designerId, week, allEntries]
     )
 
-    // Position + overlap-column entries per visible day (TT.8 · matches
-    // dayCount para consistencia con render index).
+    // TT.34 · Diego 2026-09-03 · filtrar entries que caigan fuera del
+    // rango visible (< dayStartMin o >= dayEndMin) para que no se rendericen
+    // encima del sticky header o abajo del footer. Los entries early (ej.
+    // 6:30 AM · timezone offset) solo aparecen en Extended mode (24h range).
     const positionedByDay = useMemo(() => {
         return visibleDays.map(dateIso => {
-            const dayEntries = weekEntries.filter(e => e.date === dateIso)
+            const dayEntries = weekEntries.filter(e => {
+                if (e.date !== dateIso) return false
+                const startMin = e.startMinutesFromMidnight ?? dayStartMin
+                const endMin = startMin + e.durationMinutes
+                return endMin > dayStartMin && startMin < dayEndMin
+            })
             return positionDay(dayEntries)
         })
-    }, [visibleDays, weekEntries])
+    }, [visibleDays, weekEntries, dayStartMin, dayEndMin])
+
+    // TT.34 · detect si hay entries fuera del rango visible · hint para
+    // sugerir al user que active Extended mode.
+    const hiddenEntriesCount = useMemo(() => {
+        if (showExtended) return 0
+        return weekEntries.filter(e => {
+            const startMin = e.startMinutesFromMidnight ?? dayStartMin
+            const endMin = startMin + e.durationMinutes
+            return endMin <= dayStartMin || startMin >= dayEndMin
+        }).length
+    }, [weekEntries, dayStartMin, dayEndMin, showExtended])
 
     // Totals (unchanged from TT.1 pattern)
     const totalHours = sumHours(weekEntries)
@@ -366,11 +384,15 @@ export default function WeeklyGrid({
                     <button
                         type="button"
                         onClick={() => setShowExtended(v => !v)}
-                        className={`inline-flex items-center gap-1.5 text-xs font-medium rounded-md px-2 py-1 border transition-colors ${showExtended ? 'bg-primary text-primary-foreground border-primary' : 'text-foreground border-input hover:bg-muted'}`}
-                        title={showExtended ? 'Collapse to Mon–Fri, 7am–7pm (standard workweek)' : 'Expand to full week (Sat/Sun) + off-hours 5am–11pm · for back-fill, holidays, occasional overtime'}
+                        className={`inline-flex items-center gap-1.5 text-xs font-medium rounded-md px-2 py-1 border transition-colors ${showExtended ? 'bg-primary text-primary-foreground border-primary' : hiddenEntriesCount > 0 ? 'text-warning border-warning/50 bg-warning-soft hover:bg-warning-soft/80 animate-pulse' : 'text-foreground border-input hover:bg-muted'}`}
+                        title={showExtended ? 'Collapse to Mon–Fri, 7am–7pm (standard workweek)' : hiddenEntriesCount > 0 ? `${hiddenEntriesCount} entr${hiddenEntriesCount === 1 ? 'y' : 'ies'} outside 7am–7pm range · click to reveal (24h view)` : 'Expand to full week (Sat/Sun) + off-hours 12am–11pm · for back-fill, holidays, occasional overtime'}
                     >
                         <Sunrise className="h-3 w-3" />
                         {showExtended ? '5-day' : 'Weekend + off-hours'}
+                        {/* TT.34 · badge cuando hay entries fuera del rango default */}
+                        {!showExtended && hiddenEntriesCount > 0 && (
+                            <span className="ml-1 inline-flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-warning text-warning-foreground text-[10px] font-bold tabular-nums">{hiddenEntriesCount}</span>
+                        )}
                     </button>
                 </div>
             </div>
