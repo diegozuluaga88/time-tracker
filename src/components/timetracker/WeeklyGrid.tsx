@@ -412,17 +412,22 @@ export default function WeeklyGrid({
             {/* Body: time-axis + day cols · scrollable */}
             <div ref={scrollRef} className="overflow-y-auto" style={{ maxHeight: 'min(70vh, 640px)' }}>
                 <div ref={gridRef} className="grid relative" style={{ gridTemplateColumns: `60px repeat(${dayCount}, minmax(0, 1fr))`, height: totalHeight }}>
-                    {/* Time axis */}
+                    {/* Time axis · TT.14 · primer hour label sin translate-y-1/2
+                        (se cortaba 6px por arriba del scroll container). Resto
+                        centered en la línea de la hora como Google Cal. */}
                     <div className="relative border-r border-border">
-                        {hourLabels.map(h => (
-                            <div
-                                key={h}
-                                className="absolute right-2 text-[10px] font-mono tabular-nums text-muted-foreground -translate-y-1/2 pr-1"
-                                style={{ top: ((h * 60 - dayStartMin) / MINUTES_PER_SLOT) * CELL_HEIGHT_PX }}
-                            >
-                                {formatTimeOfDayShort(h * 60)}
-                            </div>
-                        ))}
+                        {hourLabels.map(h => {
+                            const isFirst = h === CALENDAR_DAY_START_HOUR
+                            return (
+                                <div
+                                    key={h}
+                                    className={`absolute right-2 text-[10px] font-mono tabular-nums text-muted-foreground pr-1 ${isFirst ? '' : '-translate-y-1/2'}`}
+                                    style={{ top: isFirst ? 4 : ((h * 60 - dayStartMin) / MINUTES_PER_SLOT) * CELL_HEIGHT_PX }}
+                                >
+                                    {formatTimeOfDayShort(h * 60)}
+                                </div>
+                            )
+                        })}
                     </div>
 
                     {/* Day columns · TT.8 · iterate visibleDays (matches positionedByDay length) */}
