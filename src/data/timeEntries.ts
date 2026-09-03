@@ -295,8 +295,11 @@ export const CALENDAR_DAY_END_HOUR = 19   // 7pm · default range
 // TT.5 · Diego 2026-09-03 · extended range para off-hours logging.
 // Doc explicita permite weekend + past/future dating + any hour.
 // Toggle en WeeklyGrid revela 5am-11pm cuando se necesita.
-export const EXTENDED_DAY_START_HOUR = 5   // 5am
-export const EXTENDED_DAY_END_HOUR = 23    // 11pm
+// TT.29 · Diego 2026-09-03 · extended cubre 24h completas · Wurkwel tiene
+// experts distribuídos y turnos late/early · timezone diffs pueden necesitar
+// loguear a las 2am o 11pm. El scroll natural del grid absorbe el height extra.
+export const EXTENDED_DAY_START_HOUR = 0   // 12 AM · midnight
+export const EXTENDED_DAY_END_HOUR = 23    // 11 PM · last visible hour label
 export const CELL_HEIGHT_PX = 12          // 12px per 15-min slot (48px per hour)
 export const MINUTES_PER_SLOT = 15
 

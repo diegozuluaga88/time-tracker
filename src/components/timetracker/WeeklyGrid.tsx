@@ -182,12 +182,14 @@ export default function WeeklyGrid({
     const capacity = summerFridays ? Math.max(0, baseCapacity - 4) : baseCapacity
     const pct = Math.round((totalHours / capacity) * 100)
 
-    // Hour labels for time-axis
+    // TT.29 · Diego 2026-09-03 · hour labels adaptivos al rango activo
+    // (antes hardcoded CALENDAR · en Extended solo aparecían 7-19 aunque
+    // el grid rendereaba hasta 11pm/12am).
     const hourLabels = useMemo(() => {
         const out: number[] = []
-        for (let h = CALENDAR_DAY_START_HOUR; h <= CALENDAR_DAY_END_HOUR; h++) out.push(h)
+        for (let h = startHour; h <= endHour; h++) out.push(h)
         return out
-    }, [])
+    }, [startHour, endHour])
 
     // Convert absolute Y (relative to day col) → snapped minutes
     const yToMinutes = useCallback((y: number): number => {
@@ -420,7 +422,7 @@ export default function WeeklyGrid({
                         centered en la línea de la hora como Google Cal. */}
                     <div className="relative border-r border-border">
                         {hourLabels.map(h => {
-                            const isFirst = h === CALENDAR_DAY_START_HOUR
+                            const isFirst = h === startHour   // TT.29 · usa rango actual (no hardcoded)
                             return (
                                 <div
                                     key={h}
