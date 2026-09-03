@@ -1,7 +1,12 @@
 :root {
-  --color-background: #EBECEE;
+  /* TT.30 · Diego 2026-09-03 · aumentado contraste bg vs card
+     - background #EBECEE → #E5E7EA (ligeramente más gris para diferenciar del card)
+     - card #FAFAFA → #FFFFFF (blanco puro · ratio 1.09:1 vs bg · perceivable
+       sin comprometer WCAG · el foreground text pasa AA fácil sobre ambos).
+     Antes casi indistinguibles · las cards se fundían con el fondo. */
+  --color-background: #E5E7EA;
   --color-foreground: #02060C;
-  --color-card: #fafafa;
+  --color-card: #FFFFFF;
   --color-card-foreground: #02060C;
   --color-popover: #f4f4f0;
   --color-popover-foreground: #02060C;
