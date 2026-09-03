@@ -35,11 +35,15 @@ interface Props {
     // TT.2 · Diego 2026-09-03 · pre-fill duration + start time from drag-create.
     initialDurationMinutes?: number
     initialStartMinutes?: number
+    // TT.25 · week context para el reminder de horas restantes semanal.
+    weekMondayIso?: string
+    designerId?: string
+    summerFridays?: boolean
 }
 
 type SaveState = 'idle' | 'saving' | 'saved'
 
-export default function TimeEntryForm({ isOpen, onClose, date, entry, allEntries, onSave, onDelete, onDeliverableDispatched, initialDurationMinutes, initialStartMinutes }: Props) {
+export default function TimeEntryForm({ isOpen, onClose, date, entry, allEntries, onSave, onDelete, onDeliverableDispatched, initialDurationMinutes, initialStartMinutes, weekMondayIso, designerId, summerFridays = false }: Props) {
     const isEdit = !!entry
     const [projectId, setProjectId] = useState<string | null>(entry?.projectId ?? null)
     const [taskTypeId, setTaskTypeId] = useState<string | null>(entry?.taskTypeId ?? null)
@@ -59,19 +63,23 @@ export default function TimeEntryForm({ isOpen, onClose, date, entry, allEntries
     const draftMinutes = hhmmToMinutes(durationHHMM)
     const isTimeOff = getTaskType(taskTypeId)?.group === 'time-off'
 
-    // TT.23 · Diego 2026-09-03 · reminder de horas disponibles del día ·
-    // ayuda al user a saber cuánto le queda antes de llenar la capacidad diaria.
-    const DAILY_CAPACITY_HOURS = 8
-    const hoursTodayLogged = useMemo(() => {
+    // TT.25 · Diego 2026-09-03 · reminder de horas restantes DE LA SEMANA
+    // (antes era daily 8h · Diego pidió total). Capacity = 40h · 36h summer fri.
+    const weeklyCapacityHours = summerFridays ? 36 : 40
+    const activeDesignerId = designerId ?? entry?.designerId ?? 'me'
+    const weekMon = weekMondayIso ?? mondayOf(date)
+    const weekSun = addDaysIsoLocal(weekMon, 6)
+    const hoursWeekLogged = useMemo(() => {
         const totalMin = allEntries
-            .filter(e => e.date === date && e.designerId === (entry?.designerId ?? 'me'))
-            .filter(e => !entry || e.id !== entry.id)   // exclude el entry en edit
+            .filter(e => e.designerId === activeDesignerId && e.date >= weekMon && e.date <= weekSun)
+            .filter(e => !entry || e.id !== entry.id)   // excluir el entry en edit
             .reduce((sum, e) => sum + e.durationMinutes, 0)
         return totalMin / 60
-    }, [allEntries, date, entry])
-    const hoursTodayWithDraft = hoursTodayLogged + draftMinutes / 60
-    const hoursRemaining = Math.max(0, DAILY_CAPACITY_HOURS - hoursTodayWithDraft)
-    const isOverCapacity = hoursTodayWithDraft > DAILY_CAPACITY_HOURS + 0.01
+    }, [allEntries, activeDesignerId, weekMon, weekSun, entry])
+    const hoursWeekWithDraft = hoursWeekLogged + draftMinutes / 60
+    const hoursRemaining = Math.max(0, weeklyCapacityHours - hoursWeekWithDraft)
+    const isOverCapacity = hoursWeekWithDraft > weeklyCapacityHours + 0.01
+    const overageHours = hoursWeekWithDraft - weeklyCapacityHours
 
     // TT.18 · quick-pick time off · auto-set task + duration + sentinel project.
     // Aplica solo a new entries · en edit el user modifica desde el dropdown.
@@ -204,28 +212,28 @@ export default function TimeEntryForm({ isOpen, onClose, date, entry, allEntries
                                 header/footer sticky · el Save queda siempre visible.
                                 max-h relative al viewport para no tapar top/bottom. */}
                             <DialogPanel className="w-full max-w-[720px] max-h-[calc(100vh-6rem)] rounded-2xl bg-card border border-border shadow-lg overflow-hidden flex flex-col">
-                                {/* Header · sticky */}
-                                <div className="flex items-center justify-between px-6 py-3 border-b border-border shrink-0">
-                                    <div className="flex items-baseline gap-3 flex-wrap min-w-0">
-                                        <div>
-                                            <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Time entry</div>
+                                {/* Header · sticky · TT.25 · title y chip alineados en 1 row
+                                    baseline · chip usa horas semanales restantes (total, no daily). */}
+                                <div className="flex items-center justify-between px-6 py-3 border-b border-border shrink-0 gap-4">
+                                    <div className="min-w-0 flex-1">
+                                        <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Time entry</div>
+                                        <div className="flex items-baseline gap-3 flex-wrap">
                                             <h3 className="text-base font-semibold text-foreground truncate">{formatDateLong(date)}</h3>
+                                            <span
+                                                className={`inline-flex items-baseline gap-1.5 text-xs font-medium tabular-nums px-2.5 py-1 rounded-full border shrink-0 ${
+                                                    isOverCapacity ? 'bg-destructive-soft border-destructive/40 text-destructive' :
+                                                    hoursRemaining <= 4 ? 'bg-warning-soft border-warning/40 text-warning' :
+                                                    'bg-success-soft border-success/40 text-success'
+                                                }`}
+                                                title={`${hoursWeekLogged.toFixed(1)}h logueadas esta semana + ${(draftMinutes / 60).toFixed(2)}h este entry · capacidad semanal ${weeklyCapacityHours}h${summerFridays ? ' (summer)' : ''}`}
+                                            >
+                                                {isOverCapacity ? (
+                                                    <>+{overageHours.toFixed(1)}h <span className="font-normal opacity-80">over {weeklyCapacityHours}h week</span></>
+                                                ) : (
+                                                    <>{hoursRemaining.toFixed(1)}h <span className="font-normal opacity-80">left of {weeklyCapacityHours}h week</span></>
+                                                )}
+                                            </span>
                                         </div>
-                                        {/* TT.23 · reminder de horas restantes · tone depende de fill */}
-                                        <span
-                                            className={`inline-flex items-baseline gap-1.5 text-xs font-medium tabular-nums px-2.5 py-1 rounded-full border ${
-                                                isOverCapacity ? 'bg-destructive-soft border-destructive/40 text-destructive' :
-                                                hoursRemaining <= 2 ? 'bg-warning-soft border-warning/40 text-warning' :
-                                                'bg-success-soft border-success/40 text-success'
-                                            }`}
-                                            title={`${hoursTodayLogged.toFixed(1)}h ya logueadas + ${(draftMinutes / 60).toFixed(2)}h este entry · capacidad diaria ${DAILY_CAPACITY_HOURS}h`}
-                                        >
-                                            {isOverCapacity ? (
-                                                <>+{(hoursTodayWithDraft - DAILY_CAPACITY_HOURS).toFixed(1)}h <span className="font-normal opacity-80">over 8h</span></>
-                                            ) : (
-                                                <>{hoursRemaining.toFixed(1)}h <span className="font-normal opacity-80">left today</span></>
-                                            )}
-                                        </span>
                                     </div>
                                     <button onClick={onClose} className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors shrink-0" aria-label="Close">
                                         <X className="h-4 w-4" />
@@ -452,6 +460,19 @@ function minutesToHHMM(min: number): string {
 function formatDateLong(iso: string): string {
     const d = new Date(iso)
     return d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
+}
+// TT.25 · fallback week math cuando el parent no pasa weekMondayIso.
+function mondayOf(iso: string): string {
+    const d = new Date(iso + 'T00:00:00')
+    const dow = d.getDay()                       // 0=Sun..6=Sat
+    const offset = dow === 0 ? -6 : 1 - dow      // Sun → -6 · Mon → 0
+    d.setDate(d.getDate() + offset)
+    return d.toISOString().slice(0, 10)
+}
+function addDaysIsoLocal(iso: string, n: number): string {
+    const d = new Date(iso + 'T00:00:00')
+    d.setDate(d.getDate() + n)
+    return d.toISOString().slice(0, 10)
 }
 // TT.12 · <input type="time"> value ↔ minutes-from-midnight.
 function minutesToTimeInput(min: number): string {

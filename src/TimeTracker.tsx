@@ -255,6 +255,9 @@ export default function TimeTracker({ onLogout, onNavigate }: Props) {
                 onDeliverableDispatched={handleDeliverableDispatched}
                 initialDurationMinutes={formInitialDurationMin}
                 initialStartMinutes={formInitialStartMin}
+                weekMondayIso={weekMonday}
+                designerId={designerId}
+                summerFridays={summerFridays}
             />
 
             <ToastContainer toasts={toasts} onDismiss={dismissToast} />
