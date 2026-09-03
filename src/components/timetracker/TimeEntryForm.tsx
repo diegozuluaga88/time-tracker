@@ -5,7 +5,7 @@
 
 import { Fragment, useEffect, useMemo, useState } from 'react'
 import { Dialog, Transition, DialogPanel, TransitionChild } from '@headlessui/react'
-import { X, Save, Clock, Palmtree, Umbrella, Thermometer } from 'lucide-react'
+import { X, Save, Clock, Palmtree, Umbrella, Thermometer, Minus, Plus } from 'lucide-react'
 import ProjectSelector from './ProjectSelector'
 import TaskTypeDropdown from './TaskTypeDropdown'
 import CumulativeHoursInline from './CumulativeHoursInline'
@@ -256,30 +256,19 @@ export default function TimeEntryForm({ isOpen, onClose, date, entry, allEntries
                                                 antes en el header row · se desalineaba con los inputs. */}
                                             <div className="flex items-center gap-2 flex-wrap">
                                                 <Clock className="h-4 w-4 text-muted-foreground shrink-0" />
-                                                <input
-                                                    type="time"
-                                                    step={900}
-                                                    value={minutesToTimeInput(startMin)}
-                                                    onChange={(e) => {
-                                                        const newStart = timeInputToMinutes(e.target.value)
-                                                        if (newStart !== null) setStartMin(newStart)
-                                                    }}
-                                                    className="px-3 py-2 text-sm tabular-nums font-semibold bg-background border border-input rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
-                                                    aria-label="Start time"
+                                                <TimeStepper
+                                                    value={startMin}
+                                                    onChange={setStartMin}
+                                                    ariaLabel="Start time"
                                                 />
                                                 <span className="text-xs text-muted-foreground px-1">to</span>
-                                                <input
-                                                    type="time"
-                                                    step={900}
-                                                    value={minutesToTimeInput(startMin + draftMinutes)}
-                                                    onChange={(e) => {
-                                                        const newEnd = timeInputToMinutes(e.target.value)
-                                                        if (newEnd === null) return
+                                                <TimeStepper
+                                                    value={startMin + draftMinutes}
+                                                    onChange={(newEnd) => {
                                                         const newDuration = Math.max(15, newEnd - startMin)
                                                         setDurationHHMM(minutesToHHMM(Math.round(newDuration / 15) * 15))
                                                     }}
-                                                    className="px-3 py-2 text-sm tabular-nums font-semibold bg-background border border-input rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
-                                                    aria-label="End time"
+                                                    ariaLabel="End time"
                                                 />
                                                 <span className="text-xs text-muted-foreground tabular-nums whitespace-nowrap">{durationHHMM} h</span>
                                                 <div className="ml-auto pl-2 border-l border-border">
@@ -289,7 +278,7 @@ export default function TimeEntryForm({ isOpen, onClose, date, entry, allEntries
                                                     </label>
                                                 </div>
                                             </div>
-                                            <p className="mt-1.5 text-[11px] text-muted-foreground">15-min steps · edítalo si el arrastre no fue preciso</p>
+                                            <p className="mt-1.5 text-[11px] text-muted-foreground">Type 8am / 20:15 · ↑↓ arrows or ± buttons for 15-min steps</p>
                                         </div>
                                     ) : (
                                         <div className="grid grid-cols-[1fr_auto] gap-4 items-end">
@@ -443,5 +432,118 @@ function timeInputToMinutes(v: string): number | null {
     const h = parseInt(hStr, 10)
     const m = parseInt(mStr, 10)
     if (isNaN(h) || isNaN(m)) return null
+    return h * 60 + m
+}
+
+// TT.21 · Diego 2026-09-03 · TimeStepper · reemplaza <input type="time"> con:
+// - text input flexible (acepta '8', '8:30', '8am', '8:30 PM', '20:15')
+// - botones ± para 15-min steps
+// - Arrow up/down keys para 15-min · Shift+Arrow para 1h
+// - display en formato AM/PM (consistente con time axis)
+// - blur = commit + normalize · Escape = revert.
+function TimeStepper({ value, onChange, ariaLabel }: { value: number; onChange: (min: number) => void; ariaLabel: string }) {
+    const [draft, setDraft] = useState(formatDisplay(value))
+    const [focused, setFocused] = useState(false)
+
+    // Sync desde el prop (drag externo, sibling change) solo cuando el user no está editando.
+    useEffect(() => { if (!focused) setDraft(formatDisplay(value)) }, [value, focused])
+
+    const commit = (v: number) => onChange(Math.max(0, Math.min(24 * 60 - 15, v)))
+
+    const parseAndCommit = () => {
+        const parsed = parseFlexibleTime(draft)
+        if (parsed !== null) {
+            const snapped = Math.round(parsed / 15) * 15
+            commit(snapped)
+            setDraft(formatDisplay(snapped))
+        } else {
+            setDraft(formatDisplay(value)) // revert
+        }
+    }
+
+    return (
+        <div className="inline-flex items-stretch rounded-lg border border-input bg-background focus-within:ring-2 focus-within:ring-primary/40">
+            <button
+                type="button"
+                onClick={() => commit(value - 15)}
+                className="px-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-l-lg transition-colors border-r border-border/60"
+                title="Back 15 min"
+                aria-label="Decrease time by 15 minutes"
+            >
+                <Minus className="h-3 w-3" />
+            </button>
+            <input
+                type="text"
+                inputMode="numeric"
+                value={draft}
+                onFocus={(e) => { setFocused(true); e.target.select() }}
+                onBlur={() => { setFocused(false); parseAndCommit() }}
+                onChange={(e) => setDraft(e.target.value)}
+                onKeyDown={(e) => {
+                    if (e.key === 'ArrowUp') { e.preventDefault(); commit(value + (e.shiftKey ? 60 : 15)) }
+                    else if (e.key === 'ArrowDown') { e.preventDefault(); commit(value - (e.shiftKey ? 60 : 15)) }
+                    else if (e.key === 'Enter') { e.preventDefault(); parseAndCommit(); (e.target as HTMLInputElement).blur() }
+                    else if (e.key === 'Escape') { setDraft(formatDisplay(value)); (e.target as HTMLInputElement).blur() }
+                }}
+                className="w-[74px] px-2 py-1.5 text-sm tabular-nums font-semibold bg-transparent text-foreground text-center focus:outline-none"
+                aria-label={ariaLabel}
+                placeholder="8:00 AM"
+            />
+            <button
+                type="button"
+                onClick={() => commit(value + 15)}
+                className="px-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-r-lg transition-colors border-l border-border/60"
+                title="Forward 15 min"
+                aria-label="Increase time by 15 minutes"
+            >
+                <Plus className="h-3 w-3" />
+            </button>
+        </div>
+    )
+}
+
+/** Format minutes-from-midnight as "8:00 AM". */
+function formatDisplay(min: number): string {
+    const clamped = Math.max(0, Math.min(24 * 60 - 1, min))
+    const h = Math.floor(clamped / 60)
+    const m = clamped % 60
+    const ampm = h >= 12 ? 'PM' : 'AM'
+    const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h
+    return `${h12}:${m.toString().padStart(2, '0')} ${ampm}`
+}
+
+/** Parse flexible time input · returns minutes-from-midnight or null.
+ *  Accepts: '8', '8:30', '830', '8am', '8pm', '8:30 AM', '20:15', '8.30'.
+ */
+function parseFlexibleTime(input: string): number | null {
+    const s = input.trim().toLowerCase().replace(/\s+/g, '')
+    if (!s) return null
+    // Detect am/pm suffix
+    let ampm: 'am' | 'pm' | null = null
+    let core = s
+    if (s.endsWith('am')) { ampm = 'am'; core = s.slice(0, -2) }
+    else if (s.endsWith('pm')) { ampm = 'pm'; core = s.slice(0, -2) }
+    else if (s.endsWith('a')) { ampm = 'am'; core = s.slice(0, -1) }
+    else if (s.endsWith('p')) { ampm = 'pm'; core = s.slice(0, -1) }
+    core = core.replace(/[.\s]/g, ':').trim()
+    let h: number
+    let m: number
+    if (core.includes(':')) {
+        const [hStr, mStr = '0'] = core.split(':')
+        h = parseInt(hStr, 10); m = parseInt(mStr, 10)
+    } else if (/^\d{3,4}$/.test(core)) {
+        // '830' → 8:30 · '1215' → 12:15
+        const cutoff = core.length - 2
+        h = parseInt(core.slice(0, cutoff), 10); m = parseInt(core.slice(cutoff), 10)
+    } else if (/^\d{1,2}$/.test(core)) {
+        h = parseInt(core, 10); m = 0
+    } else {
+        return null
+    }
+    if (isNaN(h) || isNaN(m) || m < 0 || m > 59 || h < 0 || h > 23) return null
+    if (ampm === 'am') { if (h === 12) h = 0 }
+    else if (ampm === 'pm') { if (h < 12) h += 12 }
+    // Sin ampm: si h en 1..7 asumimos PM (rango extended-hours coincide más con evening)?
+    // Mejor no · dejar como 24h literal para no adivinar mal.
     return h * 60 + m
 }
