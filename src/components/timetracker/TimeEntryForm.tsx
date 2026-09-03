@@ -156,6 +156,9 @@ export default function TimeEntryForm({ isOpen, onClose, date, entry, allEntries
             setSaveState('saved')
             setSavedAt(Date.now())
             setSavedSecondsAgo(0)
+            // TT.19 · Diego 2026-09-03 · cerrar modal al save exitoso.
+            // El toast externo confirma la acción · antes había que cerrar manual.
+            onClose()
         }, 350) // simulated latency
     }
 
