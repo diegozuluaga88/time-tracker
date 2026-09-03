@@ -186,15 +186,11 @@ export default function TimeEntryForm({ isOpen, onClose, date, entry, allEntries
                                         se recalcula duration (start queda fijo). */}
                                     {startMin !== undefined ? (
                                         <div>
-                                            <div className="flex items-end justify-between gap-4 mb-1.5">
-                                                <label className="block text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Time range</label>
-                                                <label className="flex items-center gap-2 text-sm text-foreground cursor-pointer">
-                                                    <input type="checkbox" checked={billable} onChange={(e) => setBillable(e.target.checked)} className="h-4 w-4 accent-success" />
-                                                    Billable
-                                                </label>
-                                            </div>
-                                            <div className="grid grid-cols-[auto_1fr_auto_1fr_auto] gap-2 items-center">
-                                                <Clock className="h-4 w-4 text-muted-foreground" />
+                                            <label className="block text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1.5">Time range</label>
+                                            {/* TT.17 · Billable inline · después del duration display ·
+                                                antes en el header row · se desalineaba con los inputs. */}
+                                            <div className="flex items-center gap-2 flex-wrap">
+                                                <Clock className="h-4 w-4 text-muted-foreground shrink-0" />
                                                 <input
                                                     type="time"
                                                     step={900}
@@ -220,7 +216,13 @@ export default function TimeEntryForm({ isOpen, onClose, date, entry, allEntries
                                                     className="px-3 py-2 text-sm tabular-nums font-semibold bg-background border border-input rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
                                                     aria-label="End time"
                                                 />
-                                                <span className="text-xs text-muted-foreground tabular-nums">{durationHHMM} h</span>
+                                                <span className="text-xs text-muted-foreground tabular-nums whitespace-nowrap">{durationHHMM} h</span>
+                                                <div className="ml-auto pl-2 border-l border-border">
+                                                    <label className="flex items-center gap-2 text-sm text-foreground cursor-pointer">
+                                                        <input type="checkbox" checked={billable} onChange={(e) => setBillable(e.target.checked)} className="h-4 w-4 accent-success" />
+                                                        Billable
+                                                    </label>
+                                                </div>
                                             </div>
                                             <p className="mt-1.5 text-[11px] text-muted-foreground">15-min steps · edítalo si el arrastre no fue preciso</p>
                                         </div>
