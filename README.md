@@ -29,8 +29,8 @@ Todas las adaptaciones del template llevan comentario prefijo `TT.*` (Time Track
 
 | ID | Adaptación | Archivo |
 |---|---|---|
-| TT.0 | Rename package + port 8090 + provenance | `package.json` · `vite.config.ts` · `README.md` · `CLAUDE.md` |
-| TT.1 | Title HTML "Time Tracker" | `index.html` |
+| TT.0 | Rename package + port 8090 + provenance + title HTML "Time Tracker" | `package.json` · `vite.config.ts` · `README.md` · `CLAUDE.md` · `index.html` |
+| TT.1 | Surface A · Designer Time Entry · Navbar tab "Time Tracker" (icon Clock, primer pill de contenido) · App.tsx route `time-tracker` (default landing) · `TimeTracker.tsx` root + segmented control (My Timesheet / Team View) + week nav · `WeeklyGrid.tsx` (Toggl-style day rows + entry chips + today ring + billable/internal totals + capacity %) · `TimeEntryForm.tsx` (modal · duration + project + task type + memo + cumulative hours inline + deliverable checkbox · Cmd+Enter save + Esc close · prompt-before-save si Task Type vacío · save-state indicator) · `ProjectSelector.tsx` (rules-based auto-hide + Include archived toggle) · `TaskTypeDropdown.tsx` (admin-owned taxonomy + completion states v1/v2/v3/complete) · `CumulativeHoursInline.tsx` (whitespace #2 · Project total after save X/Y budget · slim progress bar + severity colors) · `DeliverableCompleteCheckbox.tsx` (whitespace #1 · 5s undo window + mock webhook to sales rep) · mock data (10 designers × 4 weeks · outlier sarah 5.5h · training-gap marcus+priya on block-plan · deliverable jennifer last week) · `coachingCopy.ts` copy library locked | `src/App.tsx` · `src/components/Navbar.tsx` · `src/TimeTracker.tsx` (new) · `src/components/timetracker/*` (6 nuevos) · `src/data/{coachingCopy,taskTypes,projects,timeEntries}.ts` (4 nuevos) |
 
 (La tabla se irá llenando conforme se implementan las surfaces · ver `plan file` para el roadmap.)
 

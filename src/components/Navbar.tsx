@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { useTheme } from 'strata-design-system'
 import { useTenant } from '../TenantContext'
-import { ScanEye, MessageSquare, Bell, Moon, Sun, LogOut, ChevronDown, Building2, Check, KeyRound, Receipt, GitCompare } from 'lucide-react'
+import { ScanEye, MessageSquare, Bell, Moon, Sun, LogOut, ChevronDown, Building2, Check, KeyRound, Receipt, GitCompare, Clock } from 'lucide-react'
 import logoLightBrand from '../assets/logo-light-brand.png'
 import logoDarkBrand from '../assets/logo-dark-brand.png'
 import ChangePasswordModal from './auth/ChangePasswordModal'
@@ -42,6 +42,9 @@ export default function Navbar({ onLogout, activeTab = 'OCR', onNavigate }: Navb
     // (icon · derecha de OCR). Antes era OCR → Comparisons → Feedback.
     const tabs: { name: string; label: string; page: string; icon: any; hidden?: boolean }[] = [
         { name: 'Feedback', label: 'Feedback', page: 'feedback', icon: MessageSquare },
+        // TT.1 · Diego 2026-09-03 · Time Tracker es el headline feature del
+        // demo · va como primer pill de contenido (antes de OCR).
+        { name: 'Time Tracker', label: 'Time Tracker', page: 'time-tracker', icon: Clock },
         // DE1.11 · Diego 2026-09-02 · pill label acortado a 'OCR' para paridad
         // con gostrata.app premain (antes decía 'OCR Tracking').
         { name: 'OCR', label: 'OCR', page: 'ocr-tracking', icon: ScanEye },

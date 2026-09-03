@@ -5,6 +5,8 @@ import OCRTracking from "./OCRTracking"
 import FeedbackBoard from "./FeedbackBoard"
 import Transactions from "./Transactions"
 import Comparisons from "./Comparisons"
+// TT.1 · Diego 2026-09-03 · Time Tracker root page (new).
+import TimeTracker from "./TimeTracker"
 import Navbar from "./components/Navbar"
 import SessionExpiryModal from "./components/SessionExpiryModal"
 
@@ -14,7 +16,7 @@ import SessionExpiryModal from "./components/SessionExpiryModal"
 // OrderDetail/AckDetail full pages removidos · Transactions ahora usa
 // DocumentReviewModal (de OCR) para todos los previews.
 
-type Page = 'ocr-tracking' | 'feedback' | 'transactions' | 'comparisons'
+type Page = 'ocr-tracking' | 'feedback' | 'transactions' | 'comparisons' | 'time-tracker'
 
 export interface ConvertedDocument {
   id: string
@@ -26,7 +28,8 @@ export interface ConvertedDocument {
 
 function App() {
   const { user, initialLoading, signOut, showSessionWarning, refreshSession } = useAuth()
-  const [currentPage, setCurrentPage] = useState<Page>('ocr-tracking')
+  // TT.1 · default landing = time-tracker (headline feature del demo).
+  const [currentPage, setCurrentPage] = useState<Page>('time-tracker')
   const [convertedDoc, setConvertedDoc] = useState<ConvertedDocument | null>(null)
 
   const handleNavigate = (page: string) => {
@@ -56,6 +59,8 @@ function App() {
 
   const renderPage = () => {
     switch (currentPage) {
+      case 'time-tracker':
+        return <TimeTracker onLogout={handleLogout} onNavigate={handleNavigate} />
       case 'feedback':
         return <FeedbackBoard onLogout={handleLogout} onNavigate={handleNavigate} />
       case 'comparisons':
