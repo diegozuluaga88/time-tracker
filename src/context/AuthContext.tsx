@@ -16,11 +16,11 @@ interface MockUser {
 
 // --- Demo Credentials ---
 
-// DE1.1 · Diego 2026-09-01 · demo template · fullName genérico (Expert 1/2)
-// para navbar sin acoplarse a nadie · cambiar aquí si se personaliza el demo.
+// TT.36 · Diego 2026-09-03 · fullName Expert 1/2 → Designer 1/2 para el
+// demo Wurkwel · el rol relevante en time tracking es Designer, no Expert.
 const DEMO_ACCOUNTS: Record<string, { password: string; fullName: string }> = {
-  'demo@agenticdream.com': { password: 'StrataDemo2026!', fullName: 'Expert 1' },
-  'test@goavanto.com': { password: 'StrataDemo2026!', fullName: 'Expert 2' },
+  'demo@agenticdream.com': { password: 'StrataDemo2026!', fullName: 'Designer 1' },
+  'test@goavanto.com': { password: 'StrataDemo2026!', fullName: 'Designer 2' },
 };
 
 const STORAGE_KEY = 'strata-demo-auth';
