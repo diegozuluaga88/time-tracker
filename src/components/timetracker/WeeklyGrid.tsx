@@ -288,12 +288,13 @@ export default function WeeklyGrid({
         }
     }, [dragState, xToDayIndex, yToMinutes, week, onMoveEntry, onResizeEntry])
 
-    // TT.2 · Auto-scroll to 8am on mount + re-scroll when toggling extended.
+    // TT.10 · Diego 2026-09-03 · quitado el auto-scroll a 8am · cortaba
+    // entries que arrancaran a 7am (o menos en Extended). El default
+    // range 7am-7pm ya cabe entero sin scroll en ≥700px viewport ·
+    // Extended (5am-11pm) usa scroll natural. User controla el scroll.
     useEffect(() => {
-        if (scrollRef.current) {
-            scrollRef.current.scrollTop = Math.max(0, ((8 * 60 - dayStartMin) / MINUTES_PER_SLOT) * CELL_HEIGHT_PX)
-        }
-    }, [showExtended]) // eslint-disable-line react-hooks/exhaustive-deps
+        if (scrollRef.current) scrollRef.current.scrollTop = 0
+    }, [showExtended])
 
     return (
         <div className="rounded-2xl border border-border bg-card overflow-hidden">
