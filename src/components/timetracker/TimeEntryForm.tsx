@@ -5,12 +5,16 @@
 
 import { Fragment, useEffect, useMemo, useState } from 'react'
 import { Dialog, Transition, DialogPanel, TransitionChild } from '@headlessui/react'
-import { X, Save, Clock } from 'lucide-react'
+import { X, Save, Clock, Palmtree, Umbrella, Thermometer } from 'lucide-react'
 import ProjectSelector from './ProjectSelector'
 import TaskTypeDropdown from './TaskTypeDropdown'
 import CumulativeHoursInline from './CumulativeHoursInline'
 import DeliverableCompleteCheckbox from './DeliverableCompleteCheckbox'
 import { getTaskType, type CompletionState } from '../../data/taskTypes'
+
+// TT.18 · sentinel para entries de time-off · el ProjectSelector se oculta,
+// selectors downstream (cumulative, budget) filtran este id explícito.
+const TIME_OFF_PROJECT_ID = 'INTERNAL-TIME-OFF'
 import { coachingCopy } from '../../data/coachingCopy'
 import type { TimeEntry } from '../../data/timeEntries'
 
@@ -53,6 +57,17 @@ export default function TimeEntryForm({ isOpen, onClose, date, entry, allEntries
     const [showTaskTypePrompt, setShowTaskTypePrompt] = useState(false)
 
     const draftMinutes = hhmmToMinutes(durationHHMM)
+    const isTimeOff = getTaskType(taskTypeId)?.group === 'time-off'
+
+    // TT.18 · quick-pick time off · auto-set task + duration + sentinel project.
+    // Aplica solo a new entries · en edit el user modifica desde el dropdown.
+    const pickTimeOff = (id: 'holiday' | 'pto' | 'sick') => {
+        setTaskTypeId(id)
+        setBillable(false)
+        setDurationHHMM('8:00')
+        setProjectId(TIME_OFF_PROJECT_ID)
+        setDeliverableComplete(false)
+    }
 
     // Re-init when opened w/ a different entry
     useEffect(() => {
@@ -91,6 +106,8 @@ export default function TimeEntryForm({ isOpen, onClose, date, entry, allEntries
         // Auto-fill 8h for time-off types (holiday, PTO, sick) on new entries.
         if (t.group === 'time-off') {
             setDurationHHMM('8:00')
+            // TT.18 · auto-select sentinel project · skip el ProjectSelector.
+            setProjectId(TIME_OFF_PROJECT_ID)
         }
     }, [taskTypeId, entry])
 
@@ -180,6 +197,51 @@ export default function TimeEntryForm({ isOpen, onClose, date, entry, allEntries
 
                                 {/* Body */}
                                 <div className="p-6 space-y-4">
+                                    {/* TT.18 · quick-picks time off · Holiday / PTO / Sick.
+                                        Solo en new entries · auto-fills task + 8h + sentinel project.
+                                        Hide durante edit (el user usa el dropdown de task type). */}
+                                    {!isEdit && (
+                                        <div className="flex items-center gap-2 flex-wrap">
+                                            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Quick log</span>
+                                            <button
+                                                type="button"
+                                                onClick={() => pickTimeOff('holiday')}
+                                                className={`inline-flex items-center gap-1.5 text-xs font-medium border rounded-full px-2.5 py-1 transition-colors ${taskTypeId === 'holiday' ? 'bg-warning-soft border-warning text-foreground' : 'border-input text-foreground hover:bg-muted'}`}
+                                                title="Log 8h holiday · fills task + duration + skips project"
+                                            >
+                                                <Palmtree className="h-3 w-3" />
+                                                Holiday
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => pickTimeOff('pto')}
+                                                className={`inline-flex items-center gap-1.5 text-xs font-medium border rounded-full px-2.5 py-1 transition-colors ${taskTypeId === 'pto' ? 'bg-info-soft border-info text-foreground' : 'border-input text-foreground hover:bg-muted'}`}
+                                                title="Log 8h PTO · fills task + duration + skips project"
+                                            >
+                                                <Umbrella className="h-3 w-3" />
+                                                PTO
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => pickTimeOff('sick')}
+                                                className={`inline-flex items-center gap-1.5 text-xs font-medium border rounded-full px-2.5 py-1 transition-colors ${taskTypeId === 'sick' ? 'bg-destructive-soft border-destructive text-foreground' : 'border-input text-foreground hover:bg-muted'}`}
+                                                title="Log 8h sick · fills task + duration + skips project"
+                                            >
+                                                <Thermometer className="h-3 w-3" />
+                                                Sick
+                                            </button>
+                                            {isTimeOff && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => { setTaskTypeId(null); setProjectId(null); setDurationHHMM('1:00'); setBillable(true) }}
+                                                    className="ml-auto text-[11px] text-muted-foreground hover:text-foreground underline decoration-dotted underline-offset-2"
+                                                >
+                                                    Clear · log a regular entry
+                                                </button>
+                                            )}
+                                        </div>
+                                    )}
+
                                     {/* TT.12 · Time range · start + end editable cuando la franja
                                         viene del drag (o del entry existente). Fuente de verdad =
                                         start · end se deriva de duration · si el user edita end,
@@ -249,16 +311,20 @@ export default function TimeEntryForm({ isOpen, onClose, date, entry, allEntries
                                         </div>
                                     )}
 
-                                    {/* Project */}
-                                    <div>
-                                        <label className="block text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1.5">Project</label>
-                                        <ProjectSelector value={projectId} onChange={setProjectId} />
-                                    </div>
+                                    {/* Project · TT.18 · hide cuando task es time-off (sentinel auto-set) */}
+                                    {!isTimeOff && (
+                                        <>
+                                            <div>
+                                                <label className="block text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1.5">Project</label>
+                                                <ProjectSelector value={projectId === TIME_OFF_PROJECT_ID ? null : projectId} onChange={setProjectId} />
+                                            </div>
 
-                                    {/* Cumulative hours (whitespace #2) */}
-                                    <div className="rounded-lg border border-border bg-muted/40 p-3">
-                                        <CumulativeHoursInline projectId={projectId} draftDurationMinutes={draftMinutes} entries={allEntries} />
-                                    </div>
+                                            {/* Cumulative hours (whitespace #2) */}
+                                            <div className="rounded-lg border border-border bg-muted/40 p-3">
+                                                <CumulativeHoursInline projectId={projectId === TIME_OFF_PROJECT_ID ? null : projectId} draftDurationMinutes={draftMinutes} entries={allEntries} />
+                                            </div>
+                                        </>
+                                    )}
 
                                     {/* Task Type */}
                                     <div>
@@ -283,13 +349,15 @@ export default function TimeEntryForm({ isOpen, onClose, date, entry, allEntries
                                         />
                                     </div>
 
-                                    {/* Deliverable (whitespace #1) */}
-                                    <DeliverableCompleteCheckbox
-                                        checked={deliverableComplete}
-                                        onChange={setDeliverableComplete}
-                                        projectId={projectId}
-                                        onDispatched={(info) => onDeliverableDispatched?.({ entryId: entry?.id ?? null, ...info })}
-                                    />
+                                    {/* Deliverable (whitespace #1) · TT.18 · skip para time off */}
+                                    {!isTimeOff && (
+                                        <DeliverableCompleteCheckbox
+                                            checked={deliverableComplete}
+                                            onChange={setDeliverableComplete}
+                                            projectId={projectId === TIME_OFF_PROJECT_ID ? null : projectId}
+                                            onDispatched={(info) => onDeliverableDispatched?.({ entryId: entry?.id ?? null, ...info })}
+                                        />
+                                    )}
 
                                     {/* Prompt-before-save */}
                                     {showTaskTypePrompt && (

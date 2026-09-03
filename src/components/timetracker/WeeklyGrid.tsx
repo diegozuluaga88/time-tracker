@@ -350,14 +350,14 @@ export default function WeeklyGrid({
                 {/* Right · toggles */}
                 <div className="flex items-center gap-3">
                     {onToggleSummerFridays && (
-                        <label className="flex items-center gap-1.5 text-xs text-foreground cursor-pointer select-none" title="Reduces weekly capacity target by 4h (36h instead of 40h)">
+                        <label className="flex items-center gap-1.5 text-xs text-foreground cursor-pointer select-none whitespace-nowrap" title="Reduces weekly capacity target by 4h (36h instead of 40h)">
                             <input
                                 type="checkbox"
                                 checked={summerFridays}
                                 onChange={(e) => onToggleSummerFridays(e.target.checked)}
-                                className="h-3.5 w-3.5 accent-primary"
+                                className="h-3.5 w-3.5 accent-primary shrink-0"
                             />
-                            Summer Fri
+                            Summer Fridays
                         </label>
                     )}
                     <button
