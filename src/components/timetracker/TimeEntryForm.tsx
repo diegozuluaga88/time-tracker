@@ -59,6 +59,20 @@ export default function TimeEntryForm({ isOpen, onClose, date, entry, allEntries
     const draftMinutes = hhmmToMinutes(durationHHMM)
     const isTimeOff = getTaskType(taskTypeId)?.group === 'time-off'
 
+    // TT.23 · Diego 2026-09-03 · reminder de horas disponibles del día ·
+    // ayuda al user a saber cuánto le queda antes de llenar la capacidad diaria.
+    const DAILY_CAPACITY_HOURS = 8
+    const hoursTodayLogged = useMemo(() => {
+        const totalMin = allEntries
+            .filter(e => e.date === date && e.designerId === (entry?.designerId ?? 'me'))
+            .filter(e => !entry || e.id !== entry.id)   // exclude el entry en edit
+            .reduce((sum, e) => sum + e.durationMinutes, 0)
+        return totalMin / 60
+    }, [allEntries, date, entry])
+    const hoursTodayWithDraft = hoursTodayLogged + draftMinutes / 60
+    const hoursRemaining = Math.max(0, DAILY_CAPACITY_HOURS - hoursTodayWithDraft)
+    const isOverCapacity = hoursTodayWithDraft > DAILY_CAPACITY_HOURS + 0.01
+
     // TT.18 · quick-pick time off · auto-set task + duration + sentinel project.
     // Aplica solo a new entries · en edit el user modifica desde el dropdown.
     const pickTimeOff = (id: 'holiday' | 'pto' | 'sick') => {
@@ -180,26 +194,46 @@ export default function TimeEntryForm({ isOpen, onClose, date, entry, allEntries
                 </TransitionChild>
 
                 <div className="fixed inset-0 overflow-y-auto">
-                    <div className="flex min-h-full items-start justify-center p-6 pt-24">
+                    <div className="flex min-h-full items-start justify-center p-4 pt-12">
                         <TransitionChild
                             as={Fragment}
                             enter="ease-out duration-260" enterFrom="opacity-0 translate-y-2 scale-[0.995]" enterTo="opacity-100 translate-y-0 scale-100"
                             leave="ease-in duration-150" leaveFrom="opacity-100 scale-100" leaveTo="opacity-0 scale-[0.995]"
                         >
-                            <DialogPanel className="w-full max-w-[560px] rounded-2xl bg-card border border-border shadow-lg overflow-hidden">
-                                {/* Header */}
-                                <div className="flex items-center justify-between px-6 py-4 border-b border-border">
-                                    <div>
-                                        <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Time entry</div>
-                                        <h3 className="text-lg font-semibold text-foreground">{formatDateLong(date)}</h3>
+                            {/* TT.23 · modal más ancho (720px) + body scrollable con
+                                header/footer sticky · el Save queda siempre visible.
+                                max-h relative al viewport para no tapar top/bottom. */}
+                            <DialogPanel className="w-full max-w-[720px] max-h-[calc(100vh-6rem)] rounded-2xl bg-card border border-border shadow-lg overflow-hidden flex flex-col">
+                                {/* Header · sticky */}
+                                <div className="flex items-center justify-between px-6 py-3 border-b border-border shrink-0">
+                                    <div className="flex items-baseline gap-3 flex-wrap min-w-0">
+                                        <div>
+                                            <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Time entry</div>
+                                            <h3 className="text-base font-semibold text-foreground truncate">{formatDateLong(date)}</h3>
+                                        </div>
+                                        {/* TT.23 · reminder de horas restantes · tone depende de fill */}
+                                        <span
+                                            className={`inline-flex items-baseline gap-1.5 text-xs font-medium tabular-nums px-2.5 py-1 rounded-full border ${
+                                                isOverCapacity ? 'bg-destructive-soft border-destructive/40 text-destructive' :
+                                                hoursRemaining <= 2 ? 'bg-warning-soft border-warning/40 text-warning' :
+                                                'bg-success-soft border-success/40 text-success'
+                                            }`}
+                                            title={`${hoursTodayLogged.toFixed(1)}h ya logueadas + ${(draftMinutes / 60).toFixed(2)}h este entry · capacidad diaria ${DAILY_CAPACITY_HOURS}h`}
+                                        >
+                                            {isOverCapacity ? (
+                                                <>+{(hoursTodayWithDraft - DAILY_CAPACITY_HOURS).toFixed(1)}h <span className="font-normal opacity-80">over 8h</span></>
+                                            ) : (
+                                                <>{hoursRemaining.toFixed(1)}h <span className="font-normal opacity-80">left today</span></>
+                                            )}
+                                        </span>
                                     </div>
-                                    <button onClick={onClose} className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors" aria-label="Close">
+                                    <button onClick={onClose} className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors shrink-0" aria-label="Close">
                                         <X className="h-4 w-4" />
                                     </button>
                                 </div>
 
-                                {/* Body */}
-                                <div className="p-6 space-y-4">
+                                {/* Body · scrollable */}
+                                <div className="px-6 py-4 space-y-3 overflow-y-auto flex-1">
                                     {/* TT.18 · quick-picks time off · Holiday / PTO / Sick.
                                         Solo en new entries · auto-fills task + 8h + sentinel project.
                                         Hide durante edit (el user usa el dropdown de task type). */}
@@ -368,7 +402,7 @@ export default function TimeEntryForm({ isOpen, onClose, date, entry, allEntries
                                 </div>
 
                                 {/* Footer */}
-                                <div className="flex items-center justify-between gap-3 px-6 py-3 border-t border-border bg-muted/30">
+                                <div className="flex items-center justify-between gap-3 px-6 py-3 border-t border-border bg-muted/30 shrink-0">
                                     <div className="flex items-center gap-2 text-xs text-muted-foreground">
                                         <span className={`h-1.5 w-1.5 rounded-full ${saveState === 'saved' ? 'bg-success' : saveState === 'saving' ? 'bg-warning animate-pulse' : 'bg-muted-foreground/40'}`} />
                                         <span className="tabular-nums">{saveStateLabel}</span>

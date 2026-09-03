@@ -85,15 +85,21 @@ export default function DeliverableCompleteCheckbox({ checked, onChange, project
     // TT.20 · disabled visual + hint · el checkbox depende de tener project
     // (sin project no hay salesRep al que mandar el email). Antes no daba
     // feedback visual y parecía que "no cambiaba de estado" al click.
+    // TT.22 · Diego 2026-09-03 · después del dispatch el UI queda pegado
+    // en 'checked' (no se puede uncheck) · antes un click accidental lo
+    // desmarcaba visualmente aunque el email ya se envió. Además checkbox
+    // más grande (h-6 w-6) y checkmark stroke 3.5 para que se vea claro.
     const isDisabled = !project
+    const isLocked = dispatch.kind === 'dispatched'   // email ya salió · no reversible
+    const showChecked = checked || isLocked
     return (
         <div className={`rounded-lg border p-3 space-y-2 ${isDisabled ? 'border-dashed border-border bg-muted/30' : 'border-border bg-card'}`}>
-            <label className={`flex items-start gap-3 group ${isDisabled ? 'cursor-not-allowed' : 'cursor-pointer'}`}>
-                <div className={`h-5 w-5 rounded-md border-2 flex items-center justify-center shrink-0 mt-0.5 transition-colors ${
+            <label className={`flex items-start gap-3 group ${isDisabled ? 'cursor-not-allowed' : isLocked ? 'cursor-default' : 'cursor-pointer'}`}>
+                <div className={`h-6 w-6 rounded-md border-2 flex items-center justify-center shrink-0 mt-0.5 transition-colors ${
                     isDisabled ? 'border-input bg-muted opacity-50' :
-                    checked ? 'bg-success border-success' : 'border-input group-hover:border-primary'
+                    showChecked ? 'bg-success border-success' : 'border-input group-hover:border-primary'
                 }`}>
-                    {checked && !isDisabled && <Check className="h-3.5 w-3.5 text-white" strokeWidth={3} />}
+                    {showChecked && !isDisabled && <Check className="h-4 w-4 text-white" strokeWidth={3.5} />}
                 </div>
                 <div className="flex-1">
                     <div className={`text-sm font-medium ${isDisabled ? 'text-muted-foreground' : 'text-foreground'}`}>
@@ -108,8 +114,8 @@ export default function DeliverableCompleteCheckbox({ checked, onChange, project
                 <input
                     type="checkbox"
                     className="sr-only"
-                    checked={checked}
-                    disabled={isDisabled}
+                    checked={showChecked}
+                    disabled={isDisabled || isLocked}
                     onChange={(e) => handleToggle(e.target.checked)}
                 />
             </label>
