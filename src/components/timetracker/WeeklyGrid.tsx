@@ -16,9 +16,9 @@
 // No external DnD lib · custom Pointer Events API handlers.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { GripVertical } from 'lucide-react'
+import { GripVertical, Palette, Users, Wrench, Sun, PenTool, Presentation, Boxes, FileText, Coffee } from 'lucide-react'
 import { getProject } from '../../data/projects'
-import { getTaskType, formatTaskLabel } from '../../data/taskTypes'
+import { getTaskType, formatTaskLabel, type TaskTypeGroup } from '../../data/taskTypes'
 import {
     entriesForDesignerRange,
     DESIGNER_CAPACITY_HOURS,
@@ -50,6 +50,42 @@ const DAY_END_MIN = CALENDAR_DAY_END_HOUR * 60
 const TOTAL_MINUTES = DAY_END_MIN - DAY_START_MIN
 const TOTAL_HEIGHT = (TOTAL_MINUTES / MINUTES_PER_SLOT) * CELL_HEIGHT_PX
 const HOUR_HEIGHT = CELL_HEIGHT_PX * 4 // 4 × 15-min = 1 hour = 48px
+
+// TT.3 · Diego 2026-09-03 · task-type icon map. Reconocibilidad visual
+// aún cuando el block está comprimido por overlap (only icon + duration
+// visible when width < 100px). Lucide icons · size scales por block height.
+const TASK_ICON_BY_ID: Record<string, React.ComponentType<{ className?: string }>> = {
+    'block-plan': Boxes,
+    'floor-plan': Boxes,
+    'powerpoint': Presentation,
+    'renderings': Palette,
+    'spec-sheets': FileText,
+    'client-review': FileText,
+    'site-visit': PenTool,
+    'kickoff': Users,
+    'internal-mtg': Users,
+    'client-mtg': Users,
+    'training': Wrench,
+    'onboarding': Wrench,
+    'admin': Wrench,
+    'downtime': Coffee,
+    'holiday': Sun,
+    'pto': Sun,
+    'sick': Sun,
+}
+function getTaskIcon(taskTypeId: string): React.ComponentType<{ className?: string }> {
+    return TASK_ICON_BY_ID[taskTypeId] ?? FileText
+}
+
+// TT.3 · Deterministic project color · hashed to a stable HSL hue.
+// Rendered as a 4-pixel left rail on each entry block for at-a-glance
+// project recognition (vs. only task-type distinction). No hex hardcoded ·
+// uses CSS `hsl()` w/ soft saturation so it composes with any theme.
+function getProjectHue(projectId: string): number {
+    let hash = 0
+    for (let i = 0; i < projectId.length; i++) hash = ((hash << 5) - hash + projectId.charCodeAt(i)) | 0
+    return Math.abs(hash) % 360
+}
 
 type DragState =
     | { kind: 'idle' }
@@ -409,17 +445,30 @@ function EntryBlock({ entry, startMin, durationMin, colIndex, colCount, onEdit, 
     const widthPct = 100 / colCount
     const leftPct = colIndex * widthPct
 
+    // TT.3 · Diego 2026-09-03 · icon-first rendering + adaptive layout
+    // basado en (a) colCount para overlaps y (b) height para short entries.
+    const isCompactWidth = colCount >= 2
+    const isVeryCompact = colCount >= 3
+    const isShort = height < 44
+    const isMedium = height >= 44 && height < 72
+
+    const Icon = getTaskIcon(entry.taskTypeId)
+    const hue = project ? getProjectHue(project.id) : 0
+    // Rail: soft HSL bar left · deterministic per project · no hex hardcoded.
+    const railStyle = project ? { background: `hsl(${hue} 55% 55% / 0.85)` } : undefined
+
     const tone = entry.billable
-        ? 'bg-success/15 border-success/50 hover:bg-success/25'
-        : 'bg-info/15 border-info/50 hover:bg-info/25'
+        ? 'bg-success/12 border-success/40 hover:bg-success/22'
+        : 'bg-info/10 border-info/40 hover:bg-info/20'
     const accent = entry.billable ? 'text-success' : 'text-info'
+    const iconTone = entry.billable ? 'text-success' : 'text-info'
 
     const hours = (durationMin / 60).toFixed(2).replace(/\.?0+$/, '')
+    const label = taskType ? formatTaskLabel(taskType, entry.completionState) : 'Untagged'
 
     const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
         if ((e.target as HTMLElement).closest('[data-resize-handle]')) return
         e.stopPropagation()
-        // Distinguish click (open edit) vs drag (move). Start move + record threshold.
         const startY = e.clientY
         const startX = e.clientX
         const startTime = Date.now()
@@ -429,7 +478,6 @@ function EntryBlock({ entry, startMin, durationMin, colIndex, colCount, onEdit, 
             const dy = Math.abs(ev.clientY - startY)
             if (!moved && (dx > 5 || dy > 5)) {
                 moved = true
-                // Compute grabOffsetMin (where inside block user grabbed)
                 const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
                 const grabOffsetMin = ((startY - rect.top) / CELL_HEIGHT_PX) * MINUTES_PER_SLOT
                 onMoveStart(Math.round(grabOffsetMin / MINUTES_PER_SLOT) * MINUTES_PER_SLOT)
@@ -452,15 +500,24 @@ function EntryBlock({ entry, startMin, durationMin, colIndex, colCount, onEdit, 
         onResizeStart()
     }
 
+    // Rich tooltip content (native title, but with formatted line breaks for hover reveal).
+    const tooltipText = [
+        label,
+        project?.name,
+        `${formatTimeOfDay(startMin)} – ${formatTimeOfDay(startMin + durationMin)} · ${hours}h`,
+        entry.memo,
+        entry.billable ? 'Billable' : 'Internal',
+    ].filter(Boolean).join(' · ')
+
     return (
         <div
             data-entry-id={entry.id}
             onPointerDown={handlePointerDown}
             role="button"
             tabIndex={0}
-            aria-label={`Time entry ${taskType ? formatTaskLabel(taskType, entry.completionState) : 'Untagged'} · ${hours}h`}
+            aria-label={`Time entry ${label} · ${hours}h · ${formatTimeOfDay(startMin)} to ${formatTimeOfDay(startMin + durationMin)}`}
             onKeyDown={(e) => { if (e.key === 'Enter') onEdit() }}
-            className={`group absolute rounded-md border ${tone} cursor-grab active:cursor-grabbing shadow-sm hover:shadow-md transition-shadow overflow-hidden`}
+            className={`group absolute rounded-md border ${tone} cursor-grab active:cursor-grabbing shadow-sm hover:shadow-lg hover:z-40 transition-all overflow-hidden`}
             style={{
                 top,
                 height,
@@ -468,9 +525,14 @@ function EntryBlock({ entry, startMin, durationMin, colIndex, colCount, onEdit, 
                 width: `calc(${widthPct}% - 4px)`,
                 zIndex: 10,
             }}
-            title={entry.memo}
+            title={tooltipText}
         >
-            {/* Grip icon (subtle, visible on hover) */}
+            {/* Project color rail (deterministic HSL from project id · reconocibilidad) */}
+            {project && (
+                <div className="absolute inset-y-0 left-0 w-[3px] rounded-l-md pointer-events-none" style={railStyle} />
+            )}
+
+            {/* Grip icon (subtle on hover, always available for keyboard focus visual) */}
             <div className="absolute top-0.5 right-0.5 opacity-0 group-hover:opacity-40 text-foreground pointer-events-none">
                 <GripVertical className="h-3 w-3" />
             </div>
@@ -482,33 +544,60 @@ function EntryBlock({ entry, startMin, durationMin, colIndex, colCount, onEdit, 
                 </div>
             )}
 
-            <div className="p-1.5 pointer-events-none flex flex-col h-full min-h-0">
-                <div className="flex items-baseline justify-between gap-1 min-w-0">
-                    <div className={`text-[11px] font-semibold truncate ${accent}`}>
-                        {taskType ? formatTaskLabel(taskType, entry.completionState) : 'Untagged'}
+            {/* Content · adaptive layout ---------------------------------- */}
+            {isShort ? (
+                /* SHORT (< 44px): single-row icon + label + hours */
+                <div className="pl-2 pr-1.5 py-0.5 pointer-events-none flex items-center gap-1.5 h-full min-w-0">
+                    <Icon className={`h-3 w-3 shrink-0 ${iconTone}`} />
+                    <span className={`text-[10px] font-semibold truncate flex-1 ${accent}`}>{isVeryCompact ? label.split(' ')[0] : label}</span>
+                    <span className="text-[10px] font-mono tabular-nums text-foreground/80 shrink-0">{hours}h</span>
+                </div>
+            ) : isMedium ? (
+                /* MEDIUM (44-72px): icon + label row + time/project row */
+                <div className="pl-2 pr-1.5 py-1 pointer-events-none flex flex-col h-full min-h-0">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                        <Icon className={`h-3 w-3 shrink-0 ${iconTone}`} />
+                        <span className={`text-[11px] font-semibold truncate flex-1 ${accent}`}>{label}</span>
+                        <span className="text-[10px] font-mono tabular-nums text-foreground/80 shrink-0">{hours}h</span>
                     </div>
-                    <div className="text-[10px] font-mono tabular-nums text-foreground/80 shrink-0">
-                        {hours}h
+                    <div className="mt-auto flex items-center gap-1 text-[9px] font-mono tabular-nums text-muted-foreground min-w-0">
+                        <span className="shrink-0">{formatTimeOfDay(startMin)}</span>
+                        {!isCompactWidth && project && (
+                            <>
+                                <span className="opacity-40 shrink-0">·</span>
+                                <span className="truncate font-sans not-italic">{project.name}</span>
+                            </>
+                        )}
                     </div>
                 </div>
-                {height > 34 && project && (
-                    <div className="text-[10px] text-muted-foreground truncate mt-0.5">{project.name}</div>
-                )}
-                {height > 60 && entry.memo && (
-                    <div className="text-[10px] text-muted-foreground line-clamp-2 mt-0.5 leading-tight">{entry.memo}</div>
-                )}
-                {height > 30 && (
-                    <div className="mt-auto text-[9px] font-mono tabular-nums text-muted-foreground">
+            ) : (
+                /* FULL (≥72px): icon header + label + project + memo (if space) + time footer */
+                <div className="pl-2 pr-1.5 py-1.5 pointer-events-none flex flex-col h-full min-h-0">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                        <Icon className={`h-3.5 w-3.5 shrink-0 ${iconTone}`} />
+                        <span className={`text-[11px] font-semibold truncate flex-1 ${accent}`}>{label}</span>
+                        <span className="text-[10px] font-mono tabular-nums text-foreground/80 shrink-0">{hours}h</span>
+                    </div>
+                    {project && !isCompactWidth && (
+                        <div className="text-[10px] text-muted-foreground truncate mt-0.5">{project.name}</div>
+                    )}
+                    {project && isCompactWidth && (
+                        <div className="text-[9px] text-muted-foreground truncate mt-0.5">{project.client}</div>
+                    )}
+                    {height > 90 && entry.memo && !isVeryCompact && (
+                        <div className="text-[10px] text-muted-foreground line-clamp-2 mt-1 leading-tight">{entry.memo}</div>
+                    )}
+                    <div className="mt-auto text-[9px] font-mono tabular-nums text-muted-foreground pt-1">
                         {formatTimeOfDay(startMin)} – {formatTimeOfDay(startMin + durationMin)}
                     </div>
-                )}
-            </div>
+                </div>
+            )}
 
-            {/* Resize handle (bottom edge) */}
+            {/* Resize handle (bottom edge · revealed on hover) */}
             <div
                 data-resize-handle="true"
                 onPointerDown={handleResizePointerDown}
-                className="absolute inset-x-0 bottom-0 h-1.5 cursor-ns-resize hover:bg-foreground/30 rounded-b-md transition-colors"
+                className="absolute inset-x-0 bottom-0 h-1.5 cursor-ns-resize opacity-0 group-hover:opacity-100 hover:bg-foreground/30 rounded-b-md transition-colors"
                 aria-label="Resize entry"
             />
         </div>
