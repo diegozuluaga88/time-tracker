@@ -89,21 +89,40 @@ export default function DeliverableCompleteCheckbox({ checked, onChange, project
     // en 'checked' (no se puede uncheck) · antes un click accidental lo
     // desmarcaba visualmente aunque el email ya se envió. Además checkbox
     // más grande (h-6 w-6) y checkmark stroke 3.5 para que se vea claro.
+    // TT.24 · Diego 2026-09-03 · fix definitivo · el visual "marcado" ahora
+    // depende de un state interno `everChecked` que sticky-persiste una vez
+    // que el user clickeó (evita que un re-render externo lo desmarque
+    // visualmente). El input hidden también refleja este visual state.
     const isDisabled = !project
-    const isLocked = dispatch.kind === 'dispatched'   // email ya salió · no reversible
-    const showChecked = checked || isLocked
+    const isPending = dispatch.kind === 'pending'
+    const isLocked = dispatch.kind === 'dispatched'
+    const [everChecked, setEverChecked] = useState(checked)
+    useEffect(() => {
+        if (checked) setEverChecked(true)
+        // Reset visual solo cuando el user explicit uncheck Y el dispatch está idle.
+        else if (dispatch.kind === 'idle') setEverChecked(false)
+    }, [checked, dispatch.kind])
+    const showChecked = everChecked || isLocked
+
     return (
-        <div className={`rounded-lg border p-3 space-y-2 ${isDisabled ? 'border-dashed border-border bg-muted/30' : 'border-border bg-card'}`}>
+        <div className={`rounded-lg border p-3 space-y-2 transition-colors ${
+            isDisabled ? 'border-dashed border-border bg-muted/30' :
+            isLocked ? 'border-success/50 bg-success-soft' :
+            isPending ? 'border-warning/50 bg-warning-soft' :
+            showChecked ? 'border-success/40 bg-success-soft/40' :
+            'border-border bg-card'
+        }`}>
             <label className={`flex items-start gap-3 group ${isDisabled ? 'cursor-not-allowed' : isLocked ? 'cursor-default' : 'cursor-pointer'}`}>
-                <div className={`h-6 w-6 rounded-md border-2 flex items-center justify-center shrink-0 mt-0.5 transition-colors ${
+                <div className={`h-7 w-7 rounded-md border-2 flex items-center justify-center shrink-0 mt-0.5 transition-all ${
                     isDisabled ? 'border-input bg-muted opacity-50' :
-                    showChecked ? 'bg-success border-success' : 'border-input group-hover:border-primary'
+                    showChecked ? 'bg-success border-success shadow-sm' : 'border-input bg-background group-hover:border-primary'
                 }`}>
-                    {showChecked && !isDisabled && <Check className="h-4 w-4 text-white" strokeWidth={3.5} />}
+                    {showChecked && !isDisabled && <Check className="h-5 w-5 text-white" strokeWidth={3.5} />}
                 </div>
                 <div className="flex-1">
-                    <div className={`text-sm font-medium ${isDisabled ? 'text-muted-foreground' : 'text-foreground'}`}>
+                    <div className={`text-sm font-semibold ${isDisabled ? 'text-muted-foreground' : 'text-foreground'}`}>
                         Mark deliverable complete
+                        {isLocked && <span className="ml-2 text-[10px] font-bold uppercase tracking-wider text-success">· Sent</span>}
                     </div>
                     <p className={`text-xs mt-0.5 ${isDisabled ? 'text-warning' : 'text-muted-foreground'}`}>
                         {project
