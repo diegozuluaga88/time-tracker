@@ -104,27 +104,32 @@ export default function DeliverableCompleteCheckbox({ checked, onChange, project
     }, [checked, dispatch.kind])
     const showChecked = everChecked || isLocked
 
+    // TT.28 · usar tailwind default colors (green-600/emerald/amber) para
+    // no depender del custom config. Antes bg-success/border-success no se
+    // emitían cuando el config no tenía la key registrada · checkbox invisible.
     return (
         <div className={`rounded-lg border p-3 space-y-2 transition-colors ${
-            isDisabled ? 'border-dashed border-border bg-muted/30' :
-            isLocked ? 'border-success/50 bg-success-soft' :
-            isPending ? 'border-warning/50 bg-warning-soft' :
-            showChecked ? 'border-success/40 bg-success-soft/40' :
+            isDisabled ? 'border-dashed border-zinc-300 bg-zinc-100/60 dark:bg-zinc-800/40' :
+            isLocked ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-950/30' :
+            isPending ? 'border-amber-500 bg-amber-50 dark:bg-amber-950/30' :
+            showChecked ? 'border-emerald-400 bg-emerald-50/60 dark:bg-emerald-950/20' :
             'border-border bg-card'
         }`}>
             <label className={`flex items-start gap-3 group ${isDisabled ? 'cursor-not-allowed' : isLocked ? 'cursor-default' : 'cursor-pointer'}`}>
                 <div className={`h-7 w-7 rounded-md border-2 flex items-center justify-center shrink-0 mt-0.5 transition-all ${
-                    isDisabled ? 'border-input bg-muted opacity-50' :
-                    showChecked ? 'bg-success border-success shadow-sm' : 'border-input bg-background group-hover:border-primary'
+                    isDisabled ? 'border-zinc-300 bg-zinc-100 opacity-60' :
+                    showChecked ? 'bg-emerald-600 border-emerald-700 shadow-md' :
+                    'border-zinc-400 bg-white dark:bg-zinc-900 group-hover:border-emerald-500'
                 }`}>
-                    {showChecked && !isDisabled && <Check className="h-5 w-5 text-white" strokeWidth={3.5} />}
+                    {showChecked && !isDisabled && <Check className="h-5 w-5 text-white" strokeWidth={4} />}
                 </div>
                 <div className="flex-1">
                     <div className={`text-sm font-semibold ${isDisabled ? 'text-muted-foreground' : 'text-foreground'}`}>
                         Mark deliverable complete
-                        {isLocked && <span className="ml-2 text-[10px] font-bold uppercase tracking-wider text-success">· Sent</span>}
+                        {isLocked && <span className="ml-2 text-[10px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">· Sent</span>}
+                        {isPending && <span className="ml-2 text-[10px] font-bold uppercase tracking-wider text-amber-700 dark:text-amber-400">· Sending</span>}
                     </div>
-                    <p className={`text-xs mt-0.5 ${isDisabled ? 'text-warning' : 'text-muted-foreground'}`}>
+                    <p className={`text-xs mt-0.5 ${isDisabled ? 'text-amber-700 dark:text-amber-400' : 'text-muted-foreground'}`}>
                         {project
                             ? <>Fires an email to <span className="font-medium text-foreground">{project.salesRepName}</span> on <span className="font-medium text-foreground">{project.name}</span>.</>
                             : 'Select a project above to enable this action.'}
