@@ -299,8 +299,8 @@ export default function WeeklyGrid({
     }, [showExtended])
 
     return (
-        // TT.30 · Diego 2026-09-03 · card panel · shadow-sm + bg-card sobre bg-background (bone gris) para diferenciar por depth · antes casi imperceptible en pantallas de bajo contraste.
-        <div className="rounded-2xl border border-border bg-card overflow-hidden shadow-sm">
+        // TT.30/31 · card panel · shadow-sm en light + border más marcado en dark (dark:border-white/10) porque shadow es casi invisible sobre bg negro.
+        <div className="rounded-2xl border border-border bg-card overflow-hidden shadow-sm dark:shadow-none dark:border-white/[0.08]">
             {/* TT.15 · Diego 2026-09-03 · panel colapsado a 1 sola row.
                 Antes: 2 rows con divider · comía ~110px de alto. Ahora:
                 1 row ~48px · date compacto + actions | stats inline |
@@ -575,6 +575,15 @@ interface EntryBlockProps {
 }
 
 function EntryBlock({ entry, startMin, durationMin, colIndex, colCount, dayStartMin, onEdit, onDelete, onMoveStart, onResizeStart }: EntryBlockProps) {
+    // TT.31 · Diego 2026-09-03 · detect dark theme para ajustar los inline
+    // styles del ProjectChip (los tokens tailwind soportan `dark:` pero los
+    // hsl() inline no · leemos la class del root para elegir el hue correcto).
+    const [isDark, setIsDark] = useState(() => typeof document !== 'undefined' && document.documentElement.classList.contains('dark'))
+    useEffect(() => {
+        const obs = new MutationObserver(() => setIsDark(document.documentElement.classList.contains('dark')))
+        obs.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] })
+        return () => obs.disconnect()
+    }, [])
     const project = getProject(entry.projectId)
     const taskType = getTaskType(entry.taskTypeId)
     const top = ((startMin - dayStartMin) / MINUTES_PER_SLOT) * CELL_HEIGHT_PX
@@ -610,9 +619,13 @@ function EntryBlock({ entry, startMin, durationMin, colIndex, colCount, dayStart
     // TT.7 · Diego 2026-09-03 · project chip · pill con el HSL hue del
     // project (mismo hash que el rail izquierdo) · reemplaza el project
     // name como text · más reconocible + compacto.
-    const chipBgStyle = project ? { background: `hsl(${hue} 55% 55% / 0.20)`, borderColor: `hsl(${hue} 55% 45% / 0.35)`, color: `hsl(${hue} 60% 25%)` } : undefined
-    const chipBgStyleDark = project ? { color: `hsl(${hue} 55% 75%)` } : undefined
-    void chipBgStyleDark // reserved for dark mode inline overrides (Strata tokens handle base)
+    // TT.31 · dark mode · chip background más denso + text más claro para
+    // contrast · antes en dark los chips se perdían sobre entries verdes.
+    const chipBgStyle = project
+        ? isDark
+            ? { background: `hsl(${hue} 45% 30% / 0.55)`, borderColor: `hsl(${hue} 55% 55% / 0.50)`, color: `hsl(${hue} 65% 82%)` }
+            : { background: `hsl(${hue} 55% 55% / 0.20)`, borderColor: `hsl(${hue} 55% 45% / 0.35)`, color: `hsl(${hue} 60% 25%)` }
+        : undefined
 
     const hours = (durationMin / 60).toFixed(2).replace(/\.?0+$/, '')
     const label = taskType ? formatTaskLabel(taskType, entry.completionState) : 'Untagged'
