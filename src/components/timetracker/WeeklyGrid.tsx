@@ -299,9 +299,7 @@ export default function WeeklyGrid({
     }, [showExtended])
 
     return (
-        {/* TT.30 · Diego 2026-09-03 · card panel · shadow-sm + bg-card sobre
-            bg-background (bone gris) para diferenciar por depth · antes casi
-            imperceptible en pantallas de bajo contraste. */}
+        // TT.30 · Diego 2026-09-03 · card panel · shadow-sm + bg-card sobre bg-background (bone gris) para diferenciar por depth · antes casi imperceptible en pantallas de bajo contraste.
         <div className="rounded-2xl border border-border bg-card overflow-hidden shadow-sm">
             {/* TT.15 · Diego 2026-09-03 · panel colapsado a 1 sola row.
                 Antes: 2 rows con divider · comía ~110px de alto. Ahora:
