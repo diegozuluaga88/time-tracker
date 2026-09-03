@@ -119,13 +119,19 @@ export default function WeeklyGrid({
     // TT.5 · toggle Extended hours (5am-11pm) vs Default (7am-7pm).
     const [showExtended, setShowExtended] = useState(false)
 
-    // Computed range (default 7am-7pm · extended 5am-11pm).
+    // TT.8 · Diego 2026-09-03 · toggle Extended ahora también revela
+    // weekend (Sat/Sun). Doc `sot.md:67` permite weekend logging pero
+    // `transcript:109` McKinley: "I'm not going to tell them on Saturday
+    // they need to go in" → weekend es excepción, no default. Default
+    // My Timesheet = Mon-Fri (5-day) + 7am-7pm · Extended = 7-day (Mon-Sun)
+    // + 5am-11pm. Team View mantiene 7-day siempre (necesita overtime).
     const startHour = showExtended ? EXTENDED_DAY_START_HOUR : CALENDAR_DAY_START_HOUR
     const endHour = showExtended ? EXTENDED_DAY_END_HOUR : CALENDAR_DAY_END_HOUR
     const dayStartMin = startHour * 60
     const dayEndMin = endHour * 60
     const totalMinutes = dayEndMin - dayStartMin
     const totalHeight = (totalMinutes / MINUTES_PER_SLOT) * CELL_HEIGHT_PX
+    const dayCount = showExtended ? 7 : 5
 
     // Refresh current-time indicator every 60s
     useEffect(() => {
@@ -133,23 +139,29 @@ export default function WeeklyGrid({
         return () => window.clearInterval(t)
     }, [])
 
+    // TT.8 · full week array siempre (para totals + navigation), slice
+    // por dayCount solo en el render del grid.
     const week = useMemo(
         () => Array.from({ length: 7 }).map((_, i) => addDaysIso(weekMondayIso, i)),
         [weekMondayIso]
     )
+    const visibleDays = useMemo(() => week.slice(0, dayCount), [week, dayCount])
 
+    // Totals summary uses full week (weekend entries still count toward
+    // capacity · summer Fridays y overtime).
     const weekEntries = useMemo(
         () => entriesForDesignerRange(designerId, week[0], week[6], allEntries),
         [designerId, week, allEntries]
     )
 
-    // Position + overlap-column entries per day
+    // Position + overlap-column entries per visible day (TT.8 · matches
+    // dayCount para consistencia con render index).
     const positionedByDay = useMemo(() => {
-        return week.map(dateIso => {
+        return visibleDays.map(dateIso => {
             const dayEntries = weekEntries.filter(e => e.date === dateIso)
             return positionDay(dayEntries)
         })
-    }, [week, weekEntries])
+    }, [visibleDays, weekEntries])
 
     // Totals (unchanged from TT.1 pattern)
     const totalHours = sumHours(weekEntries)
@@ -320,18 +332,18 @@ export default function WeeklyGrid({
                         type="button"
                         onClick={() => setShowExtended(v => !v)}
                         className={`inline-flex items-center gap-1.5 text-xs font-medium rounded-md px-2.5 py-1.5 border transition-colors ${showExtended ? 'bg-primary text-primary-foreground border-primary' : 'text-foreground border-input hover:bg-muted'}`}
-                        title={showExtended ? 'Collapse to 7am–7pm default' : 'Expand to 5am–11pm (off-hours logging)'}
+                        title={showExtended ? 'Collapse to Mon–Fri, 7am–7pm (standard workweek)' : 'Expand to full week (Sat/Sun) + off-hours 5am–11pm · for back-fill, holidays, occasional overtime'}
                     >
                         <Sunrise className="h-3 w-3" />
-                        {showExtended ? 'Standard hours' : 'Extended hours'}
+                        {showExtended ? 'Standard 5-day' : 'Weekend + off-hours'}
                     </button>
                 </div>
             </div>
 
             {/* Day headers (sticky top when scrolling body) */}
-            <div className="grid border-b border-border bg-muted/30" style={{ gridTemplateColumns: `60px repeat(7, minmax(0, 1fr))` }}>
+            <div className="grid border-b border-border bg-muted/30" style={{ gridTemplateColumns: `60px repeat(${dayCount}, minmax(0, 1fr))` }}>
                 <div className="border-r border-border" />
-                {week.map((iso, i) => {
+                {visibleDays.map((iso, i) => {
                     const isToday = iso === todayIso
                     const isWeekend = i >= 5
                     const dayEntries = weekEntries.filter(e => e.date === iso)
@@ -348,7 +360,7 @@ export default function WeeklyGrid({
 
             {/* Body: time-axis + day cols · scrollable */}
             <div ref={scrollRef} className="overflow-y-auto" style={{ maxHeight: 'min(70vh, 640px)' }}>
-                <div ref={gridRef} className="grid relative" style={{ gridTemplateColumns: `60px repeat(7, minmax(0, 1fr))`, height: totalHeight }}>
+                <div ref={gridRef} className="grid relative" style={{ gridTemplateColumns: `60px repeat(${dayCount}, minmax(0, 1fr))`, height: totalHeight }}>
                     {/* Time axis */}
                     <div className="relative border-r border-border">
                         {hourLabels.map(h => (
