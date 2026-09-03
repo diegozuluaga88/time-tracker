@@ -57,10 +57,13 @@ export default function TeamView({
 
     return (
         <div className="space-y-6">
-            {/* Row 1: hero attention (left col) + missing-time digest (right col) */}
+            {/* TT.40 · Diego 2026-09-03 · swap · MissingTimeDigest (pain #1 ·
+                sev 4 · semanal recurrente · lo primero que McKinley busca cada
+                viernes) queda en el hot-spot izquierdo del F-pattern reading ·
+                AttentionNeededCard hero (aggregate multi-pain) a la derecha. */}
             <div className="grid gap-6 lg:grid-cols-2">
-                <AttentionNeededCard items={attention} onItemClick={openDrilldown} />
                 <MissingTimeDigest missing={missing} weekMondayIso={weekMondayIso} onSendDigest={onSendDigest ?? (() => {})} />
+                <AttentionNeededCard items={attention} onItemClick={openDrilldown} />
             </div>
 
             {/* Row 2: utilization heatmap (full width, is dense) */}
