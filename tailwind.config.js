@@ -19,6 +19,7 @@ export default {
                     foreground: "rgb(from var(--primary-foreground) r g b / <alpha-value>)",
                     soft: "rgb(from var(--color-primary-soft) r g b / <alpha-value>)",
                     tint: "rgb(from var(--color-primary-tint) r g b / <alpha-value>)",
+                    // alias para escribir bg-primary/40 etc con soft variant.
                 },
                 secondary: {
                     DEFAULT: "rgb(from var(--secondary) r g b / <alpha-value>)",
@@ -27,6 +28,30 @@ export default {
                 destructive: {
                     DEFAULT: "rgb(from var(--destructive) r g b / <alpha-value>)",
                     foreground: "rgb(from var(--destructive-foreground) r g b / <alpha-value>)",
+                    soft: "rgb(from var(--color-status-error-soft) r g b / <alpha-value>)",
+                },
+                // TT.27 · semantic status colors (mapean a --color-status-*).
+                // Faltaban en el config · las clases bg-success/border-success
+                // se emitían vacías · el checkbox marcado se veía en blanco.
+                success: {
+                    DEFAULT: "rgb(from var(--color-status-success) r g b / <alpha-value>)",
+                    foreground: "rgb(from var(--color-status-success-foreground) r g b / <alpha-value>)",
+                    soft: "rgb(from var(--color-status-success-soft) r g b / <alpha-value>)",
+                },
+                warning: {
+                    DEFAULT: "rgb(from var(--color-status-warning) r g b / <alpha-value>)",
+                    foreground: "rgb(from var(--color-status-warning-foreground) r g b / <alpha-value>)",
+                    soft: "rgb(from var(--color-status-warning-soft) r g b / <alpha-value>)",
+                },
+                info: {
+                    DEFAULT: "rgb(from var(--color-status-info) r g b / <alpha-value>)",
+                    foreground: "rgb(from var(--color-status-info-foreground) r g b / <alpha-value>)",
+                    soft: "rgb(from var(--color-status-info-soft) r g b / <alpha-value>)",
+                },
+                ai: {
+                    DEFAULT: "rgb(from var(--color-status-ai) r g b / <alpha-value>)",
+                    foreground: "rgb(from var(--color-status-ai-foreground) r g b / <alpha-value>)",
+                    soft: "rgb(from var(--color-status-ai-soft) r g b / <alpha-value>)",
                 },
                 muted: {
                     DEFAULT: "rgb(from var(--muted) r g b / <alpha-value>)",
