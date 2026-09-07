@@ -219,9 +219,11 @@ export default function TimeTracker({ onLogout }: Props) {
                                     const names = designerIds.map(id => getTeamMember(id)?.name?.split(' ')[0] ?? id)
                                     addToast('success', `Friday digest sent to ${names.length} designer${names.length === 1 ? '' : 's'}: ${names.join(', ')}`)
                                 }}
-                                onSendCoachingMessage={(designerId) => {
+                                onSendCoachingMessage={(designerId, _entryId, message) => {
                                     const person = getTeamMember(designerId)
-                                    addToast('info', `Check-in message drafted for ${person?.name ?? designerId} · opens in Action Center (mock)`)
+                                    const firstName = person?.name?.split(' ')[0] ?? designerId
+                                    const preview = message ? ` · "${message.slice(0, 40)}${message.length > 40 ? '…' : ''}"` : ''
+                                    addToast('success', `Check-in sent to ${firstName}${preview}`)
                                 }}
                             />
                         )}

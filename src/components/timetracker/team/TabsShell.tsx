@@ -9,6 +9,9 @@ export interface TabDef {
     icon: React.ComponentType<{ className?: string }>
     badge?: number
     badgeTone?: 'muted' | 'warning' | 'destructive'
+    /** TT.42.1 · Diego 2026-09-07 · tooltip explaining what the tab shows and
+     *  what the manager can do there. Rendered via native `title` attribute. */
+    description?: string
 }
 
 interface Props {
@@ -31,12 +34,14 @@ export default function TabsShell({ tabs, defaultTabId, children }: Props) {
                             key={tab.id}
                             type="button"
                             onClick={() => setActive(tab.id)}
+                            title={tab.description}
                             className={`inline-flex items-center gap-2 px-4 py-2.5 text-sm font-semibold whitespace-nowrap border-b-2 -mb-px transition-colors ${
                                 isActive
                                     ? 'border-primary text-foreground'
                                     : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
                             }`}
                             aria-current={isActive ? 'page' : undefined}
+                            aria-label={tab.description ? `${tab.label} · ${tab.description}` : tab.label}
                         >
                             <Icon className="h-4 w-4" />
                             {tab.label}

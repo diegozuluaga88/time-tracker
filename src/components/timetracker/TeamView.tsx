@@ -32,7 +32,7 @@ interface Props {
     todayIso: string
     summerFridaysActive?: boolean
     onSendDigest?: (designerIds: string[]) => void
-    onSendCoachingMessage?: (designerId: string, entryId: string) => void
+    onSendCoachingMessage?: (designerId: string, entryId: string, message?: string) => void
 }
 
 export default function TeamView({
@@ -53,9 +53,28 @@ export default function TeamView({
     const trendsCount = trainingGaps.filter(g => Math.abs(g.trendPercent) >= 15).length
 
     const tabs: TabDef[] = [
-        { id: 'utilization', label: 'Utilization', icon: BarChart3 },
-        { id: 'attention',   label: 'Attention',   icon: AlertCircle, badge: attentionCount, badgeTone: attentionCount > 5 ? 'destructive' : attentionCount > 0 ? 'warning' : 'muted' },
-        { id: 'trends',      label: 'Trends',      icon: LineChart,   badge: trendsCount,    badgeTone: trendsCount > 3 ? 'warning' : 'muted' },
+        {
+            id: 'utilization',
+            label: 'Utilization',
+            icon: BarChart3,
+            description: 'Daily hours vs capacity per designer · spot who is over/under · click a row to drill in.',
+        },
+        {
+            id: 'attention',
+            label: 'Attention',
+            icon: AlertCircle,
+            badge: attentionCount,
+            badgeTone: attentionCount > 5 ? 'destructive' : attentionCount > 0 ? 'warning' : 'muted',
+            description: 'Designers behind target (send digest) + long sessions (write a check-in inline). Action-focused.',
+        },
+        {
+            id: 'trends',
+            label: 'Trends',
+            icon: LineChart,
+            badge: trendsCount,
+            badgeTone: trendsCount > 3 ? 'warning' : 'muted',
+            description: '4-week velocity sparklines per designer × task type · spot training gaps early.',
+        },
     ]
 
     return (
