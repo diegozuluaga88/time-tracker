@@ -320,70 +320,8 @@ export function buildTrainingGaps(
     return rows.sort((a, b) => Math.abs(b.trendPercent) - Math.abs(a.trendPercent))
 }
 
-// ============================================================
-// Attention-needed hero card (priority summary)
-// ============================================================
-export interface AttentionItem {
-    kind: 'missing-time' | 'outlier' | 'training-gap' | 'parallel-work'
-    designerName: string
-    designerId: DesignerId
-    summary: string
-}
-
-/**
- * Builds the "Attention needed" list ordered by priority per plan:
- * missing-time > outlier > training-gap > parallel-work.
- * Takes only top 3 items for the hero card.
- */
-export function buildAttentionItems(
-    weekMondayIso: string,
-    allEntries: TimeEntry[],
-    summerFridaysActive: boolean,
-    getName: (id: string) => string
-): AttentionItem[] {
-    const items: AttentionItem[] = []
-    // 1. Missing time
-    const missing = detectMissingTime(weekMondayIso, allEntries, summerFridaysActive)
-    for (const m of missing.slice(0, 3)) {
-        items.push({
-            kind: 'missing-time',
-            designerId: m.designerId,
-            designerName: getName(m.designerId),
-            summary: `${m.hoursMissing.toFixed(1)}h behind target this week`,
-        })
-    }
-    // 2. Red outliers (only red-tier for hero)
-    const outliers = detectOutliers(weekMondayIso, allEntries).filter(o => o.tier === 'red')
-    for (const o of outliers.slice(0, 2)) {
-        const taskType = getTaskType(o.entry.taskTypeId)
-        items.push({
-            kind: 'outlier',
-            designerId: o.entry.designerId as DesignerId,
-            designerName: getName(o.entry.designerId),
-            summary: `${(o.entry.durationMinutes / 60).toFixed(1)}h on ${taskType?.label ?? 'a task'} · ${o.hoursAboveAvg.toFixed(1)}h above avg`,
-        })
-    }
-    // 3. Training-gap (only trends > 30% or < -30%)
-    const gaps = buildTrainingGaps(weekMondayIso, allEntries)
-        .filter(g => Math.abs(g.trendPercent) >= 30 && g.points[3].sampleCount > 0)
-    for (const g of gaps.slice(0, 2)) {
-        const taskType = getTaskType(g.taskTypeId)
-        items.push({
-            kind: 'training-gap',
-            designerId: g.designerId,
-            designerName: getName(g.designerId),
-            summary: `${taskType?.label ?? 'task'} velocity ${g.trendPercent > 0 ? '+' : ''}${g.trendPercent}% over 4 weeks`,
-        })
-    }
-    // 4. Parallel-work (postergado a Fase 5 · TT.5 · aparece si hay pairs)
-    const parallel = detectParallelWork(weekMondayIso, allEntries)
-    for (const p of parallel.slice(0, 1)) {
-        items.push({
-            kind: 'parallel-work',
-            designerId: p.designerId,
-            designerName: getName(p.designerId),
-            summary: `${p.entries.length} entries logged in the same time slot on ${new Date(p.date).toLocaleDateString('en-US', { weekday: 'short' })}`,
-        })
-    }
-    return items.slice(0, 6)
-}
+// TT.42 · buildAttentionItems + AttentionItem eliminados junto con el
+// AttentionNeededCard aggregate deprecated · las cards fuente
+// (MissingTimeDigest · OutlierCoachingCard · TrainingGapSparklines) ya
+// consumen sus selectors directos · el aggregate solo introducía doble-run
+// de detectMissingTime / detectOutliers / buildTrainingGaps.
