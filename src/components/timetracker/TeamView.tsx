@@ -123,7 +123,12 @@ export default function TeamView({
                         return (
                             <div className="space-y-4">
                                 {missing.length > 0 && (
-                                    <MissingTimeDigest missing={missing} weekMondayIso={weekMondayIso} onSendDigest={onSendDigest ?? (() => {})} />
+                                    <MissingTimeDigest
+                                        missing={missing}
+                                        weekMondayIso={weekMondayIso}
+                                        onSendDigest={onSendDigest ?? (() => {})}
+                                        onDesignerClick={openDrilldown}
+                                    />
                                 )}
                                 {outliers.length > 0 && (
                                     <OutlierCoachingCard outliers={outliers} onSendMessage={onSendCoachingMessage} />

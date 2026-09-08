@@ -7,7 +7,7 @@
 // (per UX review · H5 error prevention).
 
 import { useState } from 'react'
-import { Send, Mail, X } from 'lucide-react'
+import { Send, Mail, X, ChevronRight } from 'lucide-react'
 import { Dialog, DialogPanel, Transition, TransitionChild } from '@headlessui/react'
 import { Fragment } from 'react'
 import { getTeamMember, avatarGradient } from '../team/teamMembers'
@@ -18,9 +18,12 @@ interface Props {
     missing: MissingTimeInfo[]
     weekMondayIso: string
     onSendDigest: (designerIds: string[]) => void
+    /** TT.43.4 · Diego 2026-09-08 · click row → open drill-down modal
+     *  para ver la actividad del designer en detalle. */
+    onDesignerClick?: (designerId: string) => void
 }
 
-export default function MissingTimeDigest({ missing, weekMondayIso, onSendDigest }: Props) {
+export default function MissingTimeDigest({ missing, weekMondayIso, onSendDigest, onDesignerClick }: Props) {
     const [previewOpen, setPreviewOpen] = useState(false)
 
     const names = missing.map(m => getTeamMember(m.designerId)?.name ?? m.designerId)
@@ -50,12 +53,13 @@ export default function MissingTimeDigest({ missing, weekMondayIso, onSendDigest
                     <ul className="divide-y divide-border rounded-lg border border-border overflow-hidden">
                         {missing.slice(0, 5).map(m => {
                             const person = getTeamMember(m.designerId)
-                            return (
-                                <li key={m.designerId} className="flex items-center gap-3 px-3 py-2.5 bg-background">
+                            const clickable = !!onDesignerClick
+                            const rowContent = (
+                                <>
                                     <div className={`h-8 w-8 rounded-full bg-gradient-to-br ${avatarGradient(m.designerId)} flex items-center justify-center text-white text-[10px] font-bold shrink-0`}>
                                         {person?.initials ?? '?'}
                                     </div>
-                                    <div className="flex-1 min-w-0">
+                                    <div className="flex-1 min-w-0 text-left">
                                         <div className="text-sm font-medium text-foreground truncate">{person?.name ?? m.designerId}</div>
                                         <div className="text-xs text-muted-foreground tabular-nums">
                                             {m.hoursLogged.toFixed(1)}h logged · target {m.capacityTarget.toFixed(1)}h
@@ -64,6 +68,23 @@ export default function MissingTimeDigest({ missing, weekMondayIso, onSendDigest
                                     <div className="text-xs font-semibold text-warning tabular-nums shrink-0">
                                         −{m.hoursMissing.toFixed(1)}h
                                     </div>
+                                    {clickable && <ChevronRight className="h-3.5 w-3.5 text-muted-foreground shrink-0 opacity-0 group-hover/row:opacity-100 transition-opacity" />}
+                                </>
+                            )
+                            return (
+                                <li key={m.designerId}>
+                                    {clickable ? (
+                                        <button
+                                            type="button"
+                                            onClick={() => onDesignerClick!(m.designerId)}
+                                            className="group/row w-full flex items-center gap-3 px-3 py-2.5 bg-background hover:bg-muted/40 transition-colors text-left"
+                                            title={`View ${person?.name ?? m.designerId}'s activity this week`}
+                                        >
+                                            {rowContent}
+                                        </button>
+                                    ) : (
+                                        <div className="flex items-center gap-3 px-3 py-2.5 bg-background">{rowContent}</div>
+                                    )}
                                 </li>
                             )
                         })}
@@ -81,9 +102,10 @@ export default function MissingTimeDigest({ missing, weekMondayIso, onSendDigest
                         type="button"
                         onClick={() => setPreviewOpen(true)}
                         className="inline-flex items-center gap-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold px-4 py-2 shadow-sm hover:bg-primary/90 transition-colors"
+                        title="Send a friendly nudge to all designers below"
                     >
                         <Send className="h-3.5 w-3.5" />
-                        Send friendly nudge
+                        Send digest
                     </button>
                 </div>
             </div>
