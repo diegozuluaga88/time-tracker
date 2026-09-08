@@ -210,10 +210,12 @@ export default function TimeEntryForm({ isOpen, onClose, date, entry, allEntries
                             enter="ease-out duration-260" enterFrom="opacity-0 translate-y-2 scale-[0.995]" enterTo="opacity-100 translate-y-0 scale-100"
                             leave="ease-in duration-150" leaveFrom="opacity-100 scale-100" leaveTo="opacity-0 scale-[0.995]"
                         >
-                            {/* TT.23 · modal más ancho (720px) + body scrollable con
-                                header/footer sticky · el Save queda siempre visible.
-                                max-h relative al viewport para no tapar top/bottom. */}
-                            <DialogPanel className="w-full max-w-[720px] max-h-[calc(100vh-6rem)] rounded-2xl bg-card border border-border shadow-lg overflow-hidden flex flex-col">
+                            {/* TT.47 · modal responsive · 960/1080px en desktop para
+                                aprovechar el ancho + layout 2-col en lg+ · el body
+                                scrollable solo se activa en viewports chicos.
+                                Antes (TT.23) 720px fijo · Save requería scroll con
+                                muchos fields. */}
+                            <DialogPanel className="w-full max-w-[720px] lg:max-w-[960px] xl:max-w-[1080px] max-h-[calc(100vh-6rem)] rounded-2xl bg-card border border-border shadow-lg overflow-hidden flex flex-col">
                                 {/* Header · sticky · TT.25 · title y chip alineados en 1 row
                                     baseline · chip usa horas semanales restantes (total, no daily). */}
                                 <div className="flex items-center justify-between px-6 py-3 border-b border-border shrink-0 gap-4">
@@ -242,8 +244,8 @@ export default function TimeEntryForm({ isOpen, onClose, date, entry, allEntries
                                     </button>
                                 </div>
 
-                                {/* Body · scrollable */}
-                                <div className="px-6 py-4 space-y-3 overflow-y-auto flex-1">
+                                {/* Body · scrollable en viewports chicos · TT.47 grid 2-col en lg+ */}
+                                <div className="px-6 py-4 space-y-4 overflow-y-auto flex-1">
                                     {/* TT.18 · quick-picks time off · Holiday / PTO / Sick.
                                         Solo en new entries · auto-fills task + 8h + sentinel project.
                                         Hide durante edit (el user usa el dropdown de task type). */}
@@ -289,98 +291,99 @@ export default function TimeEntryForm({ isOpen, onClose, date, entry, allEntries
                                         </div>
                                     )}
 
-                                    {/* TT.12 · Time range · start + end editable cuando la franja
-                                        viene del drag (o del entry existente). Fuente de verdad =
-                                        start · end se deriva de duration · si el user edita end,
-                                        se recalcula duration (start queda fijo). */}
-                                    {startMin !== undefined ? (
-                                        <div>
-                                            <label className="block text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1.5">Time range</label>
-                                            {/* TT.17 · Billable inline · después del duration display ·
-                                                antes en el header row · se desalineaba con los inputs. */}
-                                            <div className="flex items-center gap-2 flex-wrap">
-                                                <Clock className="h-4 w-4 text-muted-foreground shrink-0" />
-                                                <TimeStepper
-                                                    value={startMin}
-                                                    onChange={setStartMin}
-                                                    ariaLabel="Start time"
-                                                />
-                                                <span className="text-xs text-muted-foreground px-1">to</span>
-                                                <TimeStepper
-                                                    value={startMin + draftMinutes}
-                                                    onChange={(newEnd) => {
-                                                        const newDuration = Math.max(15, newEnd - startMin)
-                                                        setDurationHHMM(minutesToHHMM(Math.round(newDuration / 15) * 15))
-                                                    }}
-                                                    ariaLabel="End time"
-                                                />
-                                                <span className="text-xs text-muted-foreground tabular-nums whitespace-nowrap">{durationHHMM} h</span>
-                                                <div className="ml-auto pl-2 border-l border-border">
+                                    {/* TT.47 · Grid 2-col · Col 1 = WHEN + WHAT PROJECT ·
+                                        Col 2 = TASK + NOTES. En <lg cae a 1 col stacked. */}
+                                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                                        {/* ─── COL 1 · identification ─── */}
+                                        <div className="space-y-4">
+                                            {/* Time range · TT.12 */}
+                                            {startMin !== undefined ? (
+                                                <div>
+                                                    <label className="block text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1.5">Time range</label>
+                                                    <div className="flex items-center gap-2 flex-wrap">
+                                                        <Clock className="h-4 w-4 text-muted-foreground shrink-0" />
+                                                        <TimeStepper
+                                                            value={startMin}
+                                                            onChange={setStartMin}
+                                                            ariaLabel="Start time"
+                                                        />
+                                                        <span className="text-xs text-muted-foreground px-1">to</span>
+                                                        <TimeStepper
+                                                            value={startMin + draftMinutes}
+                                                            onChange={(newEnd) => {
+                                                                const newDuration = Math.max(15, newEnd - startMin)
+                                                                setDurationHHMM(minutesToHHMM(Math.round(newDuration / 15) * 15))
+                                                            }}
+                                                            ariaLabel="End time"
+                                                        />
+                                                        <span className="text-xs text-muted-foreground tabular-nums whitespace-nowrap">{durationHHMM} h</span>
+                                                        <div className="ml-auto pl-2 border-l border-border">
+                                                            <label className="flex items-center gap-2 text-sm text-foreground cursor-pointer">
+                                                                <input type="checkbox" checked={billable} onChange={(e) => setBillable(e.target.checked)} className="h-4 w-4 accent-success" />
+                                                                Billable
+                                                            </label>
+                                                        </div>
+                                                    </div>
+                                                    <p className="mt-1.5 text-[11px] text-muted-foreground">Type 8am / 20:15 · ↑↓ arrows or ± buttons for 15-min steps</p>
+                                                </div>
+                                            ) : (
+                                                <div className="grid grid-cols-[1fr_auto] gap-4 items-end">
+                                                    <div>
+                                                        <label className="block text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1.5">Duration</label>
+                                                        <div className="flex items-center gap-2">
+                                                            <Clock className="h-4 w-4 text-muted-foreground" />
+                                                            <Input
+                                                                value={durationHHMM}
+                                                                onChange={(e) => setDurationHHMM(e.target.value)}
+                                                                placeholder="1:00"
+                                                                className="w-24 text-lg tabular-nums font-semibold"
+                                                            />
+                                                            <span className="text-xs text-muted-foreground">hh:mm · 15-min steps</span>
+                                                        </div>
+                                                    </div>
                                                     <label className="flex items-center gap-2 text-sm text-foreground cursor-pointer">
                                                         <input type="checkbox" checked={billable} onChange={(e) => setBillable(e.target.checked)} className="h-4 w-4 accent-success" />
                                                         Billable
                                                     </label>
                                                 </div>
-                                            </div>
-                                            <p className="mt-1.5 text-[11px] text-muted-foreground">Type 8am / 20:15 · ↑↓ arrows or ± buttons for 15-min steps</p>
+                                            )}
+
+                                            {/* Project + Cumulative · TT.18 hide en time-off */}
+                                            {!isTimeOff && (
+                                                <>
+                                                    <div>
+                                                        <label className="block text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1.5">Project</label>
+                                                        <ProjectSelector value={projectId === TIME_OFF_PROJECT_ID ? null : projectId} onChange={setProjectId} />
+                                                    </div>
+                                                    <div className="rounded-lg border border-border bg-muted/40 p-3">
+                                                        <CumulativeHoursInline projectId={projectId === TIME_OFF_PROJECT_ID ? null : projectId} draftDurationMinutes={draftMinutes} entries={allEntries} />
+                                                    </div>
+                                                </>
+                                            )}
                                         </div>
-                                    ) : (
-                                        <div className="grid grid-cols-[1fr_auto] gap-4 items-end">
+
+                                        {/* ─── COL 2 · context / narrative ─── */}
+                                        <div className="space-y-4">
                                             <div>
-                                                <label className="block text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1.5">Duration</label>
-                                                <div className="flex items-center gap-2">
-                                                    <Clock className="h-4 w-4 text-muted-foreground" />
-                                                    <Input
-                                                        value={durationHHMM}
-                                                        onChange={(e) => setDurationHHMM(e.target.value)}
-                                                        placeholder="1:00"
-                                                        className="w-24 text-lg tabular-nums font-semibold"
-                                                    />
-                                                    <span className="text-xs text-muted-foreground">hh:mm · 15-min steps</span>
-                                                </div>
+                                                <label className="block text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1.5">
+                                                    Task type
+                                                    <span className="ml-2 font-normal normal-case tracking-normal text-muted-foreground">
+                                                        (helps team spot trends · optional)
+                                                    </span>
+                                                </label>
+                                                <TaskTypeDropdown value={taskTypeId} completionState={completionState} onChange={(id, cs) => { setTaskTypeId(id); setCompletionState(cs) }} />
                                             </div>
-                                            <label className="flex items-center gap-2 text-sm text-foreground cursor-pointer">
-                                                <input type="checkbox" checked={billable} onChange={(e) => setBillable(e.target.checked)} className="h-4 w-4 accent-success" />
-                                                Billable
-                                            </label>
+
+                                            <div>
+                                                <label className="block text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1.5">Memo</label>
+                                                <Textarea
+                                                    value={memo}
+                                                    onChange={(e) => setMemo(e.target.value)}
+                                                    rows={4}
+                                                    placeholder="What did you work on?"
+                                                />
+                                            </div>
                                         </div>
-                                    )}
-
-                                    {/* Project · TT.18 · hide cuando task es time-off (sentinel auto-set) */}
-                                    {!isTimeOff && (
-                                        <>
-                                            <div>
-                                                <label className="block text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1.5">Project</label>
-                                                <ProjectSelector value={projectId === TIME_OFF_PROJECT_ID ? null : projectId} onChange={setProjectId} />
-                                            </div>
-
-                                            {/* Cumulative hours (whitespace #2) */}
-                                            <div className="rounded-lg border border-border bg-muted/40 p-3">
-                                                <CumulativeHoursInline projectId={projectId === TIME_OFF_PROJECT_ID ? null : projectId} draftDurationMinutes={draftMinutes} entries={allEntries} />
-                                            </div>
-                                        </>
-                                    )}
-
-                                    {/* Task Type */}
-                                    <div>
-                                        <label className="block text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1.5">
-                                            Task type
-                                            <span className="ml-2 font-normal normal-case tracking-normal text-muted-foreground">
-                                                (helps team spot trends · optional)
-                                            </span>
-                                        </label>
-                                        <TaskTypeDropdown value={taskTypeId} completionState={completionState} onChange={(id, cs) => { setTaskTypeId(id); setCompletionState(cs) }} />
-                                    </div>
-
-                                    {/* Memo */}
-                                    <div>
-                                        <label className="block text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1.5">Memo</label>
-                                        <Textarea
-                                            value={memo}
-                                            onChange={(e) => setMemo(e.target.value)}
-                                            rows={2}
-                                            placeholder="What did you work on?"
-                                        />
                                     </div>
 
                                     {/* Deliverable (whitespace #1) · TT.18 · skip para time off */}
