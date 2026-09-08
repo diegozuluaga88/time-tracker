@@ -31,56 +31,39 @@ export default function TrendsTab({ rows, onDesignerClick, hoursVsSold, producti
     const summary = useMemo(() => buildTrendsSummary(rows, threshold), [rows, threshold])
     const filtered = useMemo(() => rows.filter(r => Math.abs(r.trendPercent) >= threshold), [rows, threshold])
 
+    const designerCount = rows.length > 0 ? new Set(rows.map(r => r.designerId)).size : 0
+
     return (
         <div className="space-y-4">
-            {/* Summary strip · 4 mini KPIs del training-gap */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                <MiniKpi
-                    icon={Activity}
-                    label="Total rows"
-                    value={String(summary.total)}
-                    secondary={`across ${rows.length > 0 ? new Set(rows.map(r => r.designerId)).size : 0} designers`}
-                    tone="neutral"
-                />
-                <MiniKpi
-                    icon={TrendingUp}
-                    label="Slowing down"
-                    value={String(summary.slower)}
-                    secondary={`|trend| ≥ ${threshold}%`}
-                    tone={summary.slower > 3 ? 'warning' : 'neutral'}
-                />
-                <MiniKpi
-                    icon={TrendingDown}
-                    label="Getting faster"
-                    value={String(summary.faster)}
-                    secondary={`|trend| ≥ ${threshold}%`}
-                    tone={summary.faster > 0 ? 'success' : 'neutral'}
-                />
-                <MiniKpi
-                    icon={Minus}
-                    label="Stable"
-                    value={String(summary.stable)}
-                    secondary={`avg change ${summary.avgAbsChange}%`}
-                    tone="neutral"
-                />
-            </div>
+            {/* TT.43.3 · summary chips + threshold en 1 sola row (antes 4 cards
+                grandes + row de threshold aparte ocupaban ~180px · ahora ~40px). */}
+            <div className="flex items-center gap-2 flex-wrap px-1">
+                <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+                    <Activity className="h-3 w-3" />
+                    {summary.total} rows · {designerCount} designers
+                </span>
+                <span className="text-muted-foreground/50">·</span>
+                <SummaryChip icon={TrendingUp} label="slowing" value={summary.slower} tone={summary.slower > 3 ? 'warning' : 'muted'} />
+                <SummaryChip icon={TrendingDown} label="faster" value={summary.faster} tone={summary.faster > 0 ? 'success' : 'muted'} />
+                <SummaryChip icon={Minus} label="stable" value={summary.stable} tone="muted" />
+                <span className="text-[11px] text-muted-foreground tabular-nums">avg change {summary.avgAbsChange}%</span>
 
-            {/* Threshold filter · 1 row compact */}
-            <div className="flex items-center gap-3 flex-wrap px-1">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Threshold</span>
-                <div className="inline-flex rounded-md border border-input p-0.5 bg-background">
-                    {THRESHOLDS.map(t => (
-                        <button
-                            key={t}
-                            type="button"
-                            onClick={() => setThreshold(t)}
-                            className={`px-2.5 py-1 text-xs font-semibold rounded tabular-nums transition-colors ${threshold === t ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-muted'}`}
-                        >
-                            ±{t}%
-                        </button>
-                    ))}
+                <div className="ml-auto flex items-center gap-2">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Threshold</span>
+                    <div className="inline-flex rounded-md border border-input p-0.5 bg-background">
+                        {THRESHOLDS.map(t => (
+                            <button
+                                key={t}
+                                type="button"
+                                onClick={() => setThreshold(t)}
+                                className={`px-2 py-0.5 text-xs font-semibold rounded tabular-nums transition-colors ${threshold === t ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-muted'}`}
+                                title={`Show rows where |trend| ≥ ${t}%`}
+                            >
+                                ±{t}%
+                            </button>
+                        ))}
+                    </div>
                 </div>
-                <span className="text-[11px] text-muted-foreground">Lower threshold surfaces more subtle shifts.</span>
             </div>
 
             {/* Training-gap sparklines · headline whitespace #3 */}
@@ -95,24 +78,20 @@ export default function TrendsTab({ rows, onDesignerClick, hoursVsSold, producti
     )
 }
 
-function MiniKpi({ icon: Icon, label, value, secondary, tone }: {
+function SummaryChip({ icon: Icon, label, value, tone }: {
     icon: React.ComponentType<{ className?: string }>
     label: string
-    value: string
-    secondary: string
-    tone: 'success' | 'warning' | 'neutral'
+    value: number
+    tone: 'success' | 'warning' | 'muted'
 }) {
-    const toneCls = tone === 'success' ? 'text-success bg-success-soft/40 border-success/40'
-        : tone === 'warning' ? 'text-warning bg-warning-soft/40 border-warning/40'
-        : 'text-foreground bg-card border-border'
+    const cls = tone === 'success' ? 'text-success bg-success-soft border-success/30'
+        : tone === 'warning' ? 'text-warning bg-warning-soft border-warning/30'
+        : 'text-muted-foreground bg-muted/40 border-border'
     return (
-        <div className={`rounded-xl border p-3 ${toneCls}`}>
-            <div className="flex items-center gap-1.5 mb-1">
-                <Icon className={`h-3 w-3 ${tone === 'success' ? 'text-success' : tone === 'warning' ? 'text-warning' : 'text-muted-foreground'}`} />
-                <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{label}</span>
-            </div>
-            <div className={`text-2xl font-semibold tabular-nums ${tone === 'success' ? 'text-success' : tone === 'warning' ? 'text-warning' : 'text-foreground'}`}>{value}</div>
-            <div className="text-[10px] text-muted-foreground mt-0.5">{secondary}</div>
-        </div>
+        <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium tabular-nums ${cls}`}>
+            <Icon className="h-2.5 w-2.5" />
+            <span className="font-semibold">{value}</span>
+            <span className="opacity-80">{label}</span>
+        </span>
     )
 }
