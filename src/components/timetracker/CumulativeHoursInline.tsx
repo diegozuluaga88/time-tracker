@@ -39,17 +39,19 @@ export default function CumulativeHoursInline({ projectId, draftDurationMinutes 
     if (!project || !computed) {
         return (
             <div className="text-xs text-muted-foreground">
-                Pick a project to see live budget context.
+                Pick a project to see how it stacks up against the plan.
             </div>
         )
     }
 
     const { totalHours, budgetHours, percent, severity } = computed
+    // TT.45.1 · Diego 2026-09-08 · wording Bundle A · designer-friendly plain
+    // english · vocabulary de la doc SOT ('hours planned' en vez de 'budget').
     const severityCopy = severity === 'over'
-        ? 'over budget'
+        ? 'past the plan'
         : severity === 'warn'
-        ? 'nearing budget'
-        : 'within budget'
+        ? 'near the limit'
+        : 'on track'
     const severityClasses = severity === 'over'
         ? 'text-destructive'
         : severity === 'warn'
@@ -65,11 +67,11 @@ export default function CumulativeHoursInline({ projectId, draftDurationMinutes 
         <div className="space-y-1.5">
             <div className="flex items-baseline justify-between gap-2 text-sm">
                 <span className="text-muted-foreground">
-                    Project total after save
+                    Project hours after this save
                 </span>
                 <span className="font-mono tabular-nums">
                     <span className="font-semibold text-foreground">{totalHours.toFixed(1)}h</span>
-                    <span className="text-muted-foreground"> / {budgetHours}h budget</span>
+                    <span className="text-muted-foreground"> of {budgetHours}h planned</span>
                 </span>
             </div>
             {/* Slim progress bar (Tufte-flat, no shadow) */}
@@ -89,7 +91,7 @@ export default function CumulativeHoursInline({ projectId, draftDurationMinutes 
                 <span className="font-medium">{Math.round(percent)}% · {severityCopy}</span>
                 {draftDurationMinutes > 0 && (
                     <span className="text-muted-foreground">
-                        +{(draftDurationMinutes / 60).toFixed(2)}h in this entry
+                        this entry adds +{(draftDurationMinutes / 60).toFixed(2)}h
                     </span>
                 )}
             </div>
