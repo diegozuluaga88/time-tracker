@@ -63,6 +63,9 @@ export default function TimeEntryForm({ isOpen, onClose, date, entry, allEntries
     const [savedAt, setSavedAt] = useState<number | null>(null)
     const [savedSecondsAgo, setSavedSecondsAgo] = useState(0)
     const [showTaskTypePrompt, setShowTaskTypePrompt] = useState(false)
+    // TT.45 · Diego 2026-09-09 · Timely-style prompt cuando el entry excede el
+    // budget del project · benchmark:83 · NO hard-block · user decide.
+    const [showBudgetPrompt, setShowBudgetPrompt] = useState(false)
 
     const draftMinutes = hhmmToMinutes(durationHHMM)
     const isTimeOff = getTaskType(taskTypeId)?.group === 'time-off'
@@ -122,6 +125,7 @@ export default function TimeEntryForm({ isOpen, onClose, date, entry, allEntries
         setSaveState('idle')
         setSavedAt(null)
         setShowTaskTypePrompt(false)
+        setShowBudgetPrompt(false)
     }, [isOpen, entry?.id, initialDurationMinutes, initialStartMinutes]) // eslint-disable-line react-hooks/exhaustive-deps
 
     // Live "Saved Xs ago" ticker.
@@ -170,12 +174,20 @@ export default function TimeEntryForm({ isOpen, onClose, date, entry, allEntries
             setShowTaskTypePrompt(true)
             return
         }
+        // TT.45 · budget prompt · si este entry excede el budget del project
+        // y el user tiene billable marcado, ofrece marcarlo como internal.
+        // NO hard-block (benchmark:83) · user puede confirmar billable si quiere.
+        if (projectBudgetInfo?.overBudget && billable && !showBudgetPrompt) {
+            setShowBudgetPrompt(true)
+            return
+        }
         doSave()
     }
 
-    const doSave = () => {
+    const doSave = (overrideBillable?: boolean) => {
         if (!projectId) return
         setSaveState('saving')
+        const finalBillable = overrideBillable !== undefined ? overrideBillable : billable
         window.setTimeout(() => {
             onSave({
                 designerId: entry?.designerId ?? 'me',
@@ -185,7 +197,7 @@ export default function TimeEntryForm({ isOpen, onClose, date, entry, allEntries
                 completionState,
                 memo,
                 durationMinutes: draftMinutes,
-                billable,
+                billable: finalBillable,
                 deliverableComplete,
                 deliverableSentAt: undefined,
                 // TT.2 · preserve existing start (edit) or use drag-create pre-fill.
@@ -432,7 +444,7 @@ export default function TimeEntryForm({ isOpen, onClose, date, entry, allEntries
                                         </div>
                                     )}
 
-                                    {/* Prompt-before-save */}
+                                    {/* Prompt-before-save · task type missing */}
                                     {showTaskTypePrompt && (
                                         <div className="rounded-lg border border-warning/40 bg-warning-soft p-3 space-y-2">
                                             <p className="text-sm text-foreground">{coachingCopy.promptTaskTypeMissing()}</p>
@@ -440,8 +452,55 @@ export default function TimeEntryForm({ isOpen, onClose, date, entry, allEntries
                                                 <button type="button" onClick={() => setShowTaskTypePrompt(false)} className="text-xs font-medium text-muted-foreground hover:text-foreground px-3 py-1.5 rounded-md hover:bg-muted transition-colors">
                                                     Add task type
                                                 </button>
-                                                <button type="button" onClick={doSave} className="text-xs font-semibold text-foreground bg-warning/20 hover:bg-warning/30 px-3 py-1.5 rounded-md transition-colors">
+                                                <button type="button" onClick={() => doSave()} className="text-xs font-semibold text-foreground bg-warning/20 hover:bg-warning/30 px-3 py-1.5 rounded-md transition-colors">
                                                     Save anyway
+                                                </button>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* TT.45 · Prompt-before-save · budget cap (Timely pattern).
+                                        Aparece cuando el entry excede el budget del project + billable
+                                        está checked · offer 3 acciones: keep billable, log as internal,
+                                        or cancel. Alineado con doc benchmark:83 (NO hard-block) +
+                                        transcript McKinley (analysis:38 · 'add hours to next quote or
+                                        change order'). */}
+                                    {showBudgetPrompt && projectBudgetInfo && (
+                                        <div className="rounded-lg border border-destructive/40 bg-destructive-soft p-3 space-y-3">
+                                            <div className="flex items-start gap-3">
+                                                <AlertTriangle className="h-4 w-4 text-destructive shrink-0 mt-0.5" />
+                                                <div className="flex-1">
+                                                    <p className="text-sm font-medium text-foreground">
+                                                        This entry will push <span className="font-semibold">{projectBudgetInfo.projectName}</span> +{projectBudgetInfo.overHours.toFixed(1)}h over the {projectBudgetInfo.budgetHours}h plan.
+                                                    </p>
+                                                    <p className="text-xs text-muted-foreground mt-1">
+                                                        Log the excess as <strong>internal</strong> (non-billable), keep it <strong>billable</strong> and coordinate a change order with the sales rep, or cancel and adjust.
+                                                    </p>
+                                                </div>
+                                            </div>
+                                            <div className="flex items-center justify-end gap-2 flex-wrap">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setShowBudgetPrompt(false)}
+                                                    className="text-xs font-medium text-muted-foreground hover:text-foreground px-3 py-1.5 rounded-md hover:bg-muted transition-colors"
+                                                >
+                                                    Cancel
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => { setBillable(false); setShowBudgetPrompt(false); doSave(false) }}
+                                                    className="text-xs font-semibold text-foreground bg-background border border-input hover:bg-muted px-3 py-1.5 rounded-md transition-colors"
+                                                    title="Uncheck Billable and save · excess treated as internal"
+                                                >
+                                                    Log excess as internal
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => { setShowBudgetPrompt(false); doSave(true) }}
+                                                    className="text-xs font-semibold text-destructive-foreground bg-destructive hover:bg-destructive/90 px-3 py-1.5 rounded-md transition-colors"
+                                                    title="Keep this entry billable · plan a change order with the sales rep"
+                                                >
+                                                    Keep billable
                                                 </button>
                                             </div>
                                         </div>
