@@ -225,6 +225,7 @@ export default function TimeTracker({ onLogout }: Props) {
                                     const preview = message ? ` · "${message.slice(0, 40)}${message.length > 40 ? '…' : ''}"` : ''
                                     addToast('success', `Check-in sent to ${firstName}${preview}`)
                                 }}
+                                onReportGenerated={(kind, message) => addToast(kind === 'error' ? 'error' : 'success', message)}
                             />
                         )}
                     </div>

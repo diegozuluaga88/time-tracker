@@ -16,11 +16,14 @@ import OutlierCoachingCard from './OutlierCoachingCard'
 import DesignerDrilldown from './DesignerDrilldown'
 import TrendsTab from './team/TrendsTab'
 import UtilizationFiltersStrip from './team/UtilizationFilters'
+import GenerateReportButton from './team/GenerateReportButton'
+import { getTeamMember } from '../team/teamMembers'
 import {
     buildUtilizationGrid,
     detectMissingTime,
     detectOutliers,
     buildTrainingGaps,
+    buildDesignerWeekTotals,
     weekDays,
     DEFAULT_FILTERS,
     buildFilterOptions,
@@ -29,6 +32,7 @@ import {
     filterUtilizationEntries,
     type UtilizationFilters,
 } from '../../data/managerInsights'
+import type { TeamReportData } from '../../utils/generateTeamReportPdf'
 import type { TimeEntry, DesignerId } from '../../data/timeEntries'
 
 interface Props {
@@ -38,10 +42,12 @@ interface Props {
     summerFridaysActive?: boolean
     onSendDigest?: (designerIds: string[]) => void
     onSendCoachingMessage?: (designerId: string, entryId: string, message?: string) => void
+    /** TT.44 · toast callback from Generate report action. */
+    onReportGenerated?: (kind: 'success' | 'error', message: string) => void
 }
 
 export default function TeamView({
-    weekMondayIso, allEntries, todayIso, summerFridaysActive = false, onSendDigest, onSendCoachingMessage,
+    weekMondayIso, allEntries, todayIso, summerFridaysActive = false, onSendDigest, onSendCoachingMessage, onReportGenerated,
 }: Props) {
     const [drilldownDesignerId, setDrilldownDesignerId] = useState<DesignerId | null>(null)
 
@@ -63,6 +69,25 @@ export default function TeamView({
     // Sin filters (team-wide) · benchmark:223 + benchmark:225 must-have KPIs.
     const hoursVsSold = useMemo(() => buildHoursVsSold(weekMondayIso, allEntries, DEFAULT_FILTERS), [weekMondayIso, allEntries])
     const productionRate = useMemo(() => buildProductionRateByBucket(weekMondayIso, allEntries, DEFAULT_FILTERS), [weekMondayIso, allEntries])
+
+    // TT.44 · report data · usa el grid SIN filters (team-wide) para no
+    // sesgar el PDF por lo que el user esté filtrando en la UI.
+    const weekTotals = useMemo(() => buildDesignerWeekTotals(weekMondayIso, allEntries, summerFridaysActive), [weekMondayIso, allEntries, summerFridaysActive])
+    const utilGridUnfiltered = useMemo(() => buildUtilizationGrid(weekMondayIso, allEntries, summerFridaysActive), [weekMondayIso, allEntries, summerFridaysActive])
+    const reportData: TeamReportData = useMemo(() => ({
+        weekMondayIso,
+        weekLabel: formatWeekRange(days[0], days[6]),
+        generatedAt: new Date().toISOString(),
+        weekTotals,
+        missing,
+        outliers,
+        trainingGaps,
+        utilGrid: utilGridUnfiltered,
+        weekDays: days,
+        hoursVsSold,
+        productionRate,
+        getName: (id: string) => getTeamMember(id)?.name ?? id,
+    }), [weekMondayIso, days, weekTotals, missing, outliers, trainingGaps, utilGridUnfiltered, hoursVsSold, productionRate])
 
     const openDrilldown = (designerId: string) => setDrilldownDesignerId(designerId as DesignerId)
 
@@ -96,6 +121,11 @@ export default function TeamView({
 
     return (
         <>
+            {/* TT.44 · Generate report action · above the tab strip, right-aligned. */}
+            <div className="flex justify-end mb-3">
+                <GenerateReportButton data={reportData} onGenerated={onReportGenerated} />
+            </div>
+
             <TabsShell tabs={tabs} defaultTabId="utilization">
                 {(active) => {
                     if (active === 'utilization') {
@@ -161,3 +191,14 @@ export default function TeamView({
         </>
     )
 }
+
+/** TT.44 · Human-readable week range · 'Aug 31 – Sep 6, 2026'. */
+function formatWeekRange(mondayIso: string, sundayIso: string): string {
+    const mon = new Date(mondayIso)
+    const sun = new Date(sundayIso)
+    const opts: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric' }
+    const monStr = mon.toLocaleDateString('en-US', opts)
+    const sunStr = sun.toLocaleDateString('en-US', { ...opts, year: 'numeric' })
+    return `${monStr} – ${sunStr}`
+}
+
