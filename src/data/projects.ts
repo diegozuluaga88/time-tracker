@@ -33,8 +33,10 @@ export interface Project {
     hasPunchList?: boolean
 }
 
-// Reference date for "today" in the mock: 2026-09-03.
-// Any dates past that are future; anything > 365d before is auto-hidden.
+// TT.44.2 · Diego 2026-09-08 · TODAY_ISO ahora es dinámico (hoy real)
+// para que el demo muestre el current day correcto. Antes era hardcoded
+// a 2026-09-03 para determinismo · si necesitas volver a fijo, cambia
+// a `'YYYY-MM-DD'` en TODAY_ISO abajo.
 export const PROJECTS: Project[] = [
     // === Active projects (all designers can log freely) ===
     { id: 'PRJ-RS-2401', name: 'Whittier Legal · Office renovation', client: 'Whittier & Grey LLP', company: 'Rightsize', status: 'active', budgetHours: 120, hoursLoggedBaseline: 47.5, contractValue: 180000, salesRepName: 'Sarah Johnson', salesRepEmail: 'sarah.johnson@rightsize.com' },
@@ -54,8 +56,17 @@ export const PROJECTS: Project[] = [
     { id: 'PRJ-OFC-2955', name: 'Riverside Academy · Old library (old)', client: 'Riverside Academy', company: 'Office Furniture Center', status: 'closed', budgetHours: 90, hoursLoggedBaseline: 88, contractValue: 105000, salesRepName: 'Priya Shah', salesRepEmail: 'priya.shah@ofc.com', deliveryConfirmedAt: '2025-04-15' },
 ]
 
-// Fixed "today" for the mock so behavior is deterministic across sessions.
-export const TODAY_ISO = '2026-09-03'
+// TT.44.2 · Diego 2026-09-08 · "today" real (dinámico) · Diego pidió que
+// el demo muestre el current day correcto en el calendar y el heatmap.
+export const TODAY_ISO: string = todayIsoLocal()
+
+function todayIsoLocal(): string {
+    const d = new Date()
+    const yyyy = d.getFullYear()
+    const mm = String(d.getMonth() + 1).padStart(2, '0')
+    const dd = String(d.getDate()).padStart(2, '0')
+    return `${yyyy}-${mm}-${dd}`
+}
 
 /** Rules-based auto-hide (pain #5). */
 export function isProjectVisibleByRules(project: Project, todayIso: string = TODAY_ISO): boolean {
