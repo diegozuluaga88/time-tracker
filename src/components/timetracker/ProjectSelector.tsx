@@ -51,7 +51,7 @@ export default function ProjectSelector({ value, onChange }: Props) {
             <button
                 type="button"
                 onClick={() => setOpen(o => !o)}
-                className={`flex items-center justify-between gap-2 w-full px-3 py-2 rounded-lg border border-input bg-background text-sm text-foreground hover:bg-muted transition-colors ${!selected ? 'text-muted-foreground' : ''}`}
+                className={`flex items-center justify-between gap-2 w-full px-3 py-2 rounded-lg border border-input bg-input-background/30 shadow-sm text-sm text-foreground hover:bg-input-background/60 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/40 transition-colors ${!selected ? 'text-muted-foreground' : ''}`}
                 aria-haspopup="listbox"
                 aria-expanded={open}
             >
@@ -80,7 +80,7 @@ export default function ProjectSelector({ value, onChange }: Props) {
                                 value={query}
                                 onChange={(e) => setQuery(e.target.value)}
                                 placeholder="Search project, client, or company…"
-                                className="w-full pl-8 pr-3 py-1.5 text-sm bg-background border border-input rounded-md text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+                                className="w-full pl-8 pr-3 py-1.5 text-sm bg-input-background/30 border border-input rounded-md text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/40 shadow-sm transition-colors"
                                 autoFocus
                             />
                         </div>

@@ -20,6 +20,10 @@
     --destructive-foreground: var(--color-destructive-foreground);
     --border: var(--color-border);
     --input: var(--color-input);
+    /* TT.46 · Diego 2026-09-08 · input-background token canonical del DS
+       (matches reference forms/input.tsx). El bg de idle input debe usar
+       este token, NO --background (page bg), para no verse deshabilitado. */
+    --input-background: var(--color-input-background);
     --ring: var(--color-ring);
     --radius: 0.5rem;
     --chart-trend-line: #a1a1aa;

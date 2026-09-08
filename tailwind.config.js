@@ -11,6 +11,8 @@ export default {
             colors: {
                 border: "rgb(from var(--border) r g b / <alpha-value>)",
                 input: "rgb(from var(--input) r g b / <alpha-value>)",
+                // TT.46 · idle input background · matches DS forms/input.tsx canonical
+                "input-background": "rgb(from var(--input-background) r g b / <alpha-value>)",
                 ring: "rgb(from var(--ring) r g b / <alpha-value>)",
                 background: "rgb(from var(--background) r g b / <alpha-value>)",
                 foreground: "rgb(from var(--foreground) r g b / <alpha-value>)",

@@ -213,7 +213,7 @@ function ChipSelect({ value, onChange, options }: { value: string; onChange: (v:
         <select
             value={value}
             onChange={(e) => onChange(e.target.value)}
-            className="text-xs bg-background border border-input rounded-md px-2 py-1 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+            className="text-xs bg-input-background/30 border border-input shadow-sm rounded-md px-2 py-1 text-foreground focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/40 transition-colors"
         >
             {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
         </select>

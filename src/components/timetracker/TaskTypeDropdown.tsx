@@ -70,7 +70,7 @@ export default function TaskTypeDropdown({ value, completionState, onChange, siz
         return () => document.removeEventListener('mousedown', onClick)
     }, [open])
 
-    const btnBase = 'flex items-center justify-between gap-2 rounded-lg border border-input bg-background text-sm text-foreground hover:bg-muted transition-colors'
+    const btnBase = 'flex items-center justify-between gap-2 rounded-lg border border-input bg-input-background/30 shadow-sm text-sm text-foreground hover:bg-input-background/60 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/40 transition-colors'
     const btnSize = size === 'compact' ? 'px-3 py-1.5' : 'px-3 py-2 w-full'
     const labelText = selected
         ? formatTaskLabel(selected, completionState)

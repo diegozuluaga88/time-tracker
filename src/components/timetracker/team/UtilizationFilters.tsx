@@ -126,7 +126,7 @@ function FilterSelect<T extends string>({ label, value, onChange, options, displ
     highlighted: boolean
 }) {
     return (
-        <div className={`relative inline-flex items-center rounded-md border text-xs transition-colors ${highlighted ? 'bg-primary-soft border-primary/40 text-foreground' : 'bg-background border-input text-foreground hover:bg-muted'}`}>
+        <div className={`relative inline-flex items-center rounded-md border shadow-sm text-xs transition-colors ${highlighted ? 'bg-primary-soft border-primary/40 text-foreground' : 'bg-input-background/30 border-input text-foreground hover:bg-input-background/60'}`}>
             <span className="pl-2.5 py-1.5 text-muted-foreground select-none">{label}</span>
             <span className="mx-1 text-muted-foreground">·</span>
             <span className={`py-1.5 pr-6 font-medium ${highlighted ? 'text-foreground' : 'text-foreground'}`}>{displayLabel}</span>

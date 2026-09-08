@@ -108,7 +108,7 @@ function OutlierRow({ outlier, onSendMessage }: { outlier: Outlier; onSendMessag
                             <button
                                 type="button"
                                 onClick={openComposer}
-                                className="inline-flex items-center gap-1.5 text-xs font-medium text-foreground bg-background border border-input rounded-md px-2.5 py-1.5 hover:bg-muted transition-colors"
+                                className="inline-flex items-center gap-1.5 text-xs font-medium text-foreground bg-input-background/30 border border-input shadow-sm rounded-md px-2.5 py-1.5 hover:bg-input-background/60 transition-colors"
                                 title={`Draft a check-in message to ${person?.name ?? 'this designer'}`}
                             >
                                 <MessageCircle className="h-3 w-3" />
@@ -133,7 +133,7 @@ function OutlierRow({ outlier, onSendMessage }: { outlier: Outlier; onSendMessag
                                 if (e.key === 'Escape') cancel()
                             }}
                             rows={3}
-                            className="w-full px-3 py-2 text-sm bg-background border border-input rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 resize-none"
+                            className="w-full px-3 py-2 text-sm bg-input-background/30 border border-input shadow-sm rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/40 resize-none transition-colors"
                             placeholder="Write a friendly check-in..."
                         />
                         <div className="flex items-center justify-between gap-2">

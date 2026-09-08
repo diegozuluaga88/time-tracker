@@ -11,6 +11,8 @@ import TaskTypeDropdown from './TaskTypeDropdown'
 import CumulativeHoursInline from './CumulativeHoursInline'
 import DeliverableCompleteCheckbox from './DeliverableCompleteCheckbox'
 import { getTaskType, type CompletionState } from '../../data/taskTypes'
+import Input from '../ui/Input'
+import Textarea from '../ui/Textarea'
 
 // TT.18 · sentinel para entries de time-off · el ProjectSelector se oculta,
 // selectors downstream (cumulative, budget) filtran este id explícito.
@@ -328,12 +330,11 @@ export default function TimeEntryForm({ isOpen, onClose, date, entry, allEntries
                                                 <label className="block text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1.5">Duration</label>
                                                 <div className="flex items-center gap-2">
                                                     <Clock className="h-4 w-4 text-muted-foreground" />
-                                                    <input
-                                                        type="text"
+                                                    <Input
                                                         value={durationHHMM}
                                                         onChange={(e) => setDurationHHMM(e.target.value)}
                                                         placeholder="1:00"
-                                                        className="w-24 px-3 py-2 text-lg tabular-nums font-semibold bg-background border border-input rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+                                                        className="w-24 text-lg tabular-nums font-semibold"
                                                     />
                                                     <span className="text-xs text-muted-foreground">hh:mm · 15-min steps</span>
                                                 </div>
@@ -374,12 +375,11 @@ export default function TimeEntryForm({ isOpen, onClose, date, entry, allEntries
                                     {/* Memo */}
                                     <div>
                                         <label className="block text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1.5">Memo</label>
-                                        <textarea
+                                        <Textarea
                                             value={memo}
                                             onChange={(e) => setMemo(e.target.value)}
                                             rows={2}
                                             placeholder="What did you work on?"
-                                            className="w-full px-3 py-2 text-sm bg-background border border-input rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 resize-none"
                                         />
                                     </div>
 
@@ -517,7 +517,7 @@ function TimeStepper({ value, onChange, ariaLabel }: { value: number; onChange: 
     }
 
     return (
-        <div className="inline-flex items-stretch rounded-lg border border-input bg-background focus-within:ring-2 focus-within:ring-primary/40">
+        <div className="inline-flex items-stretch rounded-lg border border-input bg-input-background/30 shadow-sm focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/40 transition-colors">
             <button
                 type="button"
                 onClick={() => commit(value - 15)}
