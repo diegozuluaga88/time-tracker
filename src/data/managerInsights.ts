@@ -325,3 +325,255 @@ export function buildTrainingGaps(
 // (MissingTimeDigest · OutlierCoachingCard · TrainingGapSparklines) ya
 // consumen sus selectors directos · el aggregate solo introducía doble-run
 // de detectMissingTime / detectOutliers / buildTrainingGaps.
+
+// ============================================================
+// TT.43 · Utilization tab · filters + budget/value charts (pain #2)
+// ============================================================
+import { PROJECTS, getProject, type Project, type Company } from './projects'
+
+export type SizeBucket = 'small' | 'medium' | 'large'    // $0-10K / $10-100K / $100K+
+
+export interface UtilizationFilters {
+    company: Company | 'all'
+    billable: 'all' | 'billable' | 'internal'
+    sizeBucket: SizeBucket | 'all'
+    salesRep: string | 'all'   // salesRepName exact match
+}
+
+export const DEFAULT_FILTERS: UtilizationFilters = {
+    company: 'all',
+    billable: 'all',
+    sizeBucket: 'all',
+    salesRep: 'all',
+}
+
+/** Project size bucket by contractValue · matches benchmark:223 ranges. */
+export function projectSizeBucket(p: Project): SizeBucket {
+    const v = p.contractValue ?? 0
+    if (v < 10000) return 'small'
+    if (v < 100000) return 'medium'
+    return 'large'
+}
+
+/** True if the project passes ALL the non-billable filters (company, size, sales rep). */
+function projectMatchesFilters(p: Project, f: UtilizationFilters): boolean {
+    if (f.company !== 'all' && p.company !== f.company) return false
+    if (f.sizeBucket !== 'all' && projectSizeBucket(p) !== f.sizeBucket) return false
+    if (f.salesRep !== 'all' && p.salesRepName !== f.salesRep) return false
+    return true
+}
+
+/** True if the entry passes all filters (project+billable). */
+export function entryMatchesFilters(entry: TimeEntry, f: UtilizationFilters): boolean {
+    if (f.billable === 'billable' && !entry.billable) return false
+    if (f.billable === 'internal' && entry.billable) return false
+    if (f.company !== 'all' || f.sizeBucket !== 'all' || f.salesRep !== 'all') {
+        const project = getProject(entry.projectId)
+        if (!project) return false
+        return projectMatchesFilters(project, f)
+    }
+    return true
+}
+
+// ------------------------------------------------------------
+// Filter option catalogs (for the dropdowns)
+// ------------------------------------------------------------
+export interface FilterOptions {
+    companies: Company[]           // 3 fixed
+    salesReps: string[]            // deduplicated from active projects
+}
+
+export function buildFilterOptions(): FilterOptions {
+    const activeProjects = PROJECTS.filter(p => p.status === 'active' || p.status === 'delivered')
+    const salesReps = Array.from(new Set(activeProjects.map(p => p.salesRepName))).sort()
+    return {
+        companies: ['Rightsize', 'Office Furniture Center', 'Mac Relocations'],
+        salesReps,
+    }
+}
+
+// ------------------------------------------------------------
+// Chart 1 · Hours-vs-Sold (triple: logged / sold / variance %)
+// benchmark:225 "3 KPI cards must-have" · sot:103-104
+// "Sold" = budgetHours (proxy · docs no separan sold vs budget en detalle).
+// ------------------------------------------------------------
+export interface HoursVsSold {
+    logged: number     // hours logged this week within filters
+    sold: number       // budget hours proportional (see calc note)
+    variancePercent: number      // (logged / sold) * 100
+    projectCount: number
+}
+
+export function buildHoursVsSold(
+    weekMondayIso: string,
+    allEntries: TimeEntry[],
+    filters: UtilizationFilters
+): HoursVsSold {
+    const days = weekDays(weekMondayIso)
+    const weekEntries = allEntries.filter(e => e.date >= days[0] && e.date <= days[6] && entryMatchesFilters(e, filters))
+    const logged = sumHours(weekEntries)
+    // "Sold" per week per project = budgetHours / 12 (assume ~3-month spread as heuristic).
+    // Projects filtered to the ones that have entries this week matching filters.
+    const projectIdsThisWeek = Array.from(new Set(weekEntries.map(e => e.projectId)))
+    const activeProjects = projectIdsThisWeek
+        .map(id => getProject(id))
+        .filter((p): p is Project => !!p && (filters.company === 'all' || p.company === filters.company))
+    const sold = activeProjects.reduce((s, p) => s + p.budgetHours / 12, 0)
+    const variancePercent = sold > 0 ? Math.round((logged / sold) * 100) : 0
+    return { logged, sold, variancePercent, projectCount: activeProjects.length }
+}
+
+// ------------------------------------------------------------
+// Chart 2 · Production Rate by project size bucket
+// benchmark:223 · avg hours logged per project in the bucket (this week).
+// ------------------------------------------------------------
+export interface BucketRate {
+    bucket: SizeBucket
+    label: string             // '$0-10K' etc
+    avgHoursPerProject: number
+    projectCount: number
+    totalHours: number
+}
+
+const BUCKET_LABELS: Record<SizeBucket, string> = {
+    small: '$0-10K',
+    medium: '$10-100K',
+    large: '$100K+',
+}
+
+export function buildProductionRateByBucket(
+    weekMondayIso: string,
+    allEntries: TimeEntry[],
+    filters: UtilizationFilters
+): BucketRate[] {
+    const days = weekDays(weekMondayIso)
+    const weekEntries = allEntries.filter(e => e.date >= days[0] && e.date <= days[6] && entryMatchesFilters(e, filters))
+    // Group hours by project
+    const hoursByProject = new Map<string, number>()
+    for (const e of weekEntries) {
+        hoursByProject.set(e.projectId, (hoursByProject.get(e.projectId) ?? 0) + e.durationMinutes / 60)
+    }
+    // Group by bucket
+    const byBucket: Record<SizeBucket, { total: number; projects: Set<string> }> = {
+        small: { total: 0, projects: new Set() },
+        medium: { total: 0, projects: new Set() },
+        large: { total: 0, projects: new Set() },
+    }
+    for (const [projectId, hours] of hoursByProject) {
+        const p = getProject(projectId)
+        if (!p) continue
+        const bucket = projectSizeBucket(p)
+        byBucket[bucket].total += hours
+        byBucket[bucket].projects.add(projectId)
+    }
+    return (['small', 'medium', 'large'] as SizeBucket[]).map(bucket => {
+        const stats = byBucket[bucket]
+        const count = stats.projects.size
+        return {
+            bucket,
+            label: BUCKET_LABELS[bucket],
+            avgHoursPerProject: count > 0 ? stats.total / count : 0,
+            projectCount: count,
+            totalHours: stats.total,
+        }
+    })
+}
+
+// ------------------------------------------------------------
+// Chart 3 · Project budget status (per-project · cumulative baseline + week)
+// benchmark:65 + analysis:38 pain #4. Progress bar reuse CumulativeHoursInline.
+// ------------------------------------------------------------
+export interface ProjectBudgetRow {
+    projectId: string
+    projectName: string
+    client: string
+    company: Company
+    budgetHours: number
+    loggedHours: number      // cumulative all-time + this week
+    percent: number           // (logged / budget) * 100
+    tone: 'ok' | 'warn' | 'over'
+}
+
+export function buildProjectBudgetStatus(
+    allEntries: TimeEntry[],
+    filters: UtilizationFilters
+): ProjectBudgetRow[] {
+    const rows: ProjectBudgetRow[] = []
+    for (const p of PROJECTS) {
+        if (p.status === 'closed') continue
+        if (!projectMatchesFilters(p, filters)) continue
+        // Cumulative logged = baseline + this-week entries matching billable filter
+        const relevantEntries = allEntries.filter(e => e.projectId === p.id && (filters.billable === 'all' || (filters.billable === 'billable' && e.billable) || (filters.billable === 'internal' && !e.billable)))
+        const loggedFromEntries = sumHours(relevantEntries)
+        // Baseline includes ALL past hours; when billable filter is on, we can't split baseline · fallback to using entries only.
+        const loggedHours = filters.billable === 'all'
+            ? p.hoursLoggedBaseline + loggedFromEntries
+            : loggedFromEntries
+        const percent = p.budgetHours > 0 ? (loggedHours / p.budgetHours) * 100 : 0
+        const tone: ProjectBudgetRow['tone'] = percent > 100 ? 'over' : percent > 80 ? 'warn' : 'ok'
+        rows.push({
+            projectId: p.id,
+            projectName: p.name,
+            client: p.client,
+            company: p.company,
+            budgetHours: p.budgetHours,
+            loggedHours,
+            percent,
+            tone,
+        })
+    }
+    // Sort: over-budget first, then by percent desc, then by name.
+    return rows.sort((a, b) => {
+        if (a.tone !== b.tone) {
+            const order = { over: 0, warn: 1, ok: 2 }
+            return order[a.tone] - order[b.tone]
+        }
+        return b.percent - a.percent
+    })
+}
+
+// ------------------------------------------------------------
+// Chart 4 · Billable vs Internal donut (team-wide bajo filtros)
+// benchmark:178 · sot:99,122
+// ------------------------------------------------------------
+export interface BillableSplit {
+    billableHours: number
+    internalHours: number
+    total: number
+    billablePercent: number
+    internalPercent: number
+}
+
+export function buildBillableDonut(
+    weekMondayIso: string,
+    allEntries: TimeEntry[],
+    filters: UtilizationFilters
+): BillableSplit {
+    const days = weekDays(weekMondayIso)
+    // Nota · ignora filters.billable (para poder mostrar el split); respeta company/size/salesRep.
+    const filtersNoBillable: UtilizationFilters = { ...filters, billable: 'all' }
+    const weekEntries = allEntries.filter(e => e.date >= days[0] && e.date <= days[6] && entryMatchesFilters(e, filtersNoBillable))
+    const billableHours = sumHours(weekEntries.filter(e => e.billable))
+    const internalHours = sumHours(weekEntries.filter(e => !e.billable))
+    const total = billableHours + internalHours
+    return {
+        billableHours,
+        internalHours,
+        total,
+        billablePercent: total > 0 ? Math.round((billableHours / total) * 100) : 0,
+        internalPercent: total > 0 ? Math.round((internalHours / total) * 100) : 0,
+    }
+}
+
+// ------------------------------------------------------------
+// Utility · filter the utilization grid using the same filters
+// ------------------------------------------------------------
+export function filterUtilizationEntries(
+    allEntries: TimeEntry[],
+    filters: UtilizationFilters
+): TimeEntry[] {
+    if (filters.company === 'all' && filters.billable === 'all' && filters.sizeBucket === 'all' && filters.salesRep === 'all') {
+        return allEntries
+    }
+    return allEntries.filter(e => entryMatchesFilters(e, filters))
+}

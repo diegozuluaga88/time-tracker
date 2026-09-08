@@ -1,13 +1,11 @@
-// TT.42 · Diego 2026-09-07 · Team View sub-tabs · Utilization default landing.
-// Antes: 5 cards apiladas en 3 filas · Utilization escondida en el medio.
-// Ahora: 3 tabs · Utilization por default (matches benchmark:177 "default landing").
+// TT.42 + TT.43 · Diego 2026-09-07/08 · Team View sub-tabs.
+// - Tab Utilization (default) · pain #2 · heatmap + 4 filtros + 4 charts de valor.
+// - Tab Attention (badge) · pain #1 missing + pain #6 outliers.
+// - Tab Trends (badge) · whitespace #3 velocity sparklines.
 //
-// - Tab 1 · Utilization (default) · pain #2 · heatmap
-// - Tab 2 · Attention (badge) · pain #1 missing + pain #6 outliers + parallel
-// - Tab 3 · Trends (badge) · whitespace #3 velocity sparklines
-//
-// Selectors calculados 1 sola vez y pasados a los tabs · fixes el doble-run
-// silencioso que corría en el AttentionNeededCard aggregate deprecado.
+// Selectors calculados 1 sola vez y pasados a los tabs. TT.43 agrega
+// filtros locales al Utilization tab · state managed aquí para que aplique
+// tanto al heatmap como a los 4 charts (single source of truth).
 
 import { useMemo, useState } from 'react'
 import { BarChart3, AlertCircle, LineChart } from 'lucide-react'
@@ -17,12 +15,25 @@ import MissingTimeDigest from './MissingTimeDigest'
 import OutlierCoachingCard from './OutlierCoachingCard'
 import TrainingGapSparklines from './TrainingGapSparklines'
 import DesignerDrilldown from './DesignerDrilldown'
+import UtilizationFiltersStrip from './team/UtilizationFilters'
+import HoursVsSoldCard from './team/HoursVsSoldCard'
+import ProductionRateCard from './team/ProductionRateCard'
+import BillableDonut from './team/BillableDonut'
+import BudgetStatusTable from './team/BudgetStatusTable'
 import {
     buildUtilizationGrid,
     detectMissingTime,
     detectOutliers,
     buildTrainingGaps,
     weekDays,
+    DEFAULT_FILTERS,
+    buildFilterOptions,
+    buildHoursVsSold,
+    buildProductionRateByBucket,
+    buildBillableDonut,
+    buildProjectBudgetStatus,
+    filterUtilizationEntries,
+    type UtilizationFilters,
 } from '../../data/managerInsights'
 import type { TimeEntry, DesignerId } from '../../data/timeEntries'
 
@@ -40,12 +51,23 @@ export default function TeamView({
 }: Props) {
     const [drilldownDesignerId, setDrilldownDesignerId] = useState<DesignerId | null>(null)
 
+    // TT.43 · filtros state para el Utilization tab.
+    const [filters, setFilters] = useState<UtilizationFilters>(DEFAULT_FILTERS)
+    const filterOptions = useMemo(() => buildFilterOptions(), [])
+
     // Selectors · 1 sola vez · pasados como props a los tabs (no duplicación).
     const days = useMemo(() => weekDays(weekMondayIso), [weekMondayIso])
     const missing = useMemo(() => detectMissingTime(weekMondayIso, allEntries, summerFridaysActive, todayIso), [weekMondayIso, allEntries, summerFridaysActive, todayIso])
     const outliers = useMemo(() => detectOutliers(weekMondayIso, allEntries), [weekMondayIso, allEntries])
-    const utilGrid = useMemo(() => buildUtilizationGrid(weekMondayIso, allEntries, summerFridaysActive), [weekMondayIso, allEntries, summerFridaysActive])
     const trainingGaps = useMemo(() => buildTrainingGaps(weekMondayIso, allEntries), [weekMondayIso, allEntries])
+
+    // TT.43 · filtered entries + selectors del Utilization tab (respetan filters).
+    const filteredEntries = useMemo(() => filterUtilizationEntries(allEntries, filters), [allEntries, filters])
+    const utilGrid = useMemo(() => buildUtilizationGrid(weekMondayIso, filteredEntries, summerFridaysActive), [weekMondayIso, filteredEntries, summerFridaysActive])
+    const hoursVsSold = useMemo(() => buildHoursVsSold(weekMondayIso, allEntries, filters), [weekMondayIso, allEntries, filters])
+    const productionRate = useMemo(() => buildProductionRateByBucket(weekMondayIso, allEntries, filters), [weekMondayIso, allEntries, filters])
+    const billableSplit = useMemo(() => buildBillableDonut(weekMondayIso, allEntries, filters), [weekMondayIso, allEntries, filters])
+    const budgetRows = useMemo(() => buildProjectBudgetStatus(allEntries, filters), [allEntries, filters])
 
     const openDrilldown = (designerId: string) => setDrilldownDesignerId(designerId as DesignerId)
 
@@ -57,7 +79,7 @@ export default function TeamView({
             id: 'utilization',
             label: 'Utilization',
             icon: BarChart3,
-            description: 'Daily hours vs capacity per designer · spot who is over/under · click a row to drill in.',
+            description: 'Daily hours + budget status + billable split · filter by company / billable / project size / sales rep.',
         },
         {
             id: 'attention',
@@ -83,12 +105,21 @@ export default function TeamView({
                 {(active) => {
                     if (active === 'utilization') {
                         return (
-                            <UtilizationHeatmap
-                                grid={utilGrid}
-                                weekDays={days}
-                                todayIso={todayIso}
-                                onDesignerClick={openDrilldown}
-                            />
+                            <div className="space-y-4">
+                                <UtilizationFiltersStrip value={filters} onChange={setFilters} options={filterOptions} />
+                                <UtilizationHeatmap
+                                    grid={utilGrid}
+                                    weekDays={days}
+                                    todayIso={todayIso}
+                                    onDesignerClick={openDrilldown}
+                                />
+                                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                                    <HoursVsSoldCard data={hoursVsSold} />
+                                    <ProductionRateCard buckets={productionRate} />
+                                    <BillableDonut split={billableSplit} />
+                                </div>
+                                <BudgetStatusTable rows={budgetRows} />
+                            </div>
                         )
                     }
                     if (active === 'attention') {
