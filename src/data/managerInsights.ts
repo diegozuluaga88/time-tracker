@@ -479,91 +479,9 @@ export function buildProductionRateByBucket(
     })
 }
 
-// ------------------------------------------------------------
-// Chart 3 · Project budget status (per-project · cumulative baseline + week)
-// benchmark:65 + analysis:38 pain #4. Progress bar reuse CumulativeHoursInline.
-// ------------------------------------------------------------
-export interface ProjectBudgetRow {
-    projectId: string
-    projectName: string
-    client: string
-    company: Company
-    budgetHours: number
-    loggedHours: number      // cumulative all-time + this week
-    percent: number           // (logged / budget) * 100
-    tone: 'ok' | 'warn' | 'over'
-}
-
-export function buildProjectBudgetStatus(
-    allEntries: TimeEntry[],
-    filters: UtilizationFilters
-): ProjectBudgetRow[] {
-    const rows: ProjectBudgetRow[] = []
-    for (const p of PROJECTS) {
-        if (p.status === 'closed') continue
-        if (!projectMatchesFilters(p, filters)) continue
-        // Cumulative logged = baseline + this-week entries matching billable filter
-        const relevantEntries = allEntries.filter(e => e.projectId === p.id && (filters.billable === 'all' || (filters.billable === 'billable' && e.billable) || (filters.billable === 'internal' && !e.billable)))
-        const loggedFromEntries = sumHours(relevantEntries)
-        // Baseline includes ALL past hours; when billable filter is on, we can't split baseline · fallback to using entries only.
-        const loggedHours = filters.billable === 'all'
-            ? p.hoursLoggedBaseline + loggedFromEntries
-            : loggedFromEntries
-        const percent = p.budgetHours > 0 ? (loggedHours / p.budgetHours) * 100 : 0
-        const tone: ProjectBudgetRow['tone'] = percent > 100 ? 'over' : percent > 80 ? 'warn' : 'ok'
-        rows.push({
-            projectId: p.id,
-            projectName: p.name,
-            client: p.client,
-            company: p.company,
-            budgetHours: p.budgetHours,
-            loggedHours,
-            percent,
-            tone,
-        })
-    }
-    // Sort: over-budget first, then by percent desc, then by name.
-    return rows.sort((a, b) => {
-        if (a.tone !== b.tone) {
-            const order = { over: 0, warn: 1, ok: 2 }
-            return order[a.tone] - order[b.tone]
-        }
-        return b.percent - a.percent
-    })
-}
-
-// ------------------------------------------------------------
-// Chart 4 · Billable vs Internal donut (team-wide bajo filtros)
-// benchmark:178 · sot:99,122
-// ------------------------------------------------------------
-export interface BillableSplit {
-    billableHours: number
-    internalHours: number
-    total: number
-    billablePercent: number
-    internalPercent: number
-}
-
-export function buildBillableDonut(
-    weekMondayIso: string,
-    allEntries: TimeEntry[],
-    filters: UtilizationFilters
-): BillableSplit {
-    const days = weekDays(weekMondayIso)
-    // Nota · ignora filters.billable (para poder mostrar el split); respeta company/size/salesRep.
-    const filtersNoBillable: UtilizationFilters = { ...filters, billable: 'all' }
-    const weekEntries = allEntries.filter(e => e.date >= days[0] && e.date <= days[6] && entryMatchesFilters(e, filtersNoBillable))
-    const billableHours = sumHours(weekEntries.filter(e => e.billable))
-    const internalHours = sumHours(weekEntries.filter(e => !e.billable))
-    const total = billableHours + internalHours
-    return {
-        billableHours,
-        internalHours,
-        total,
-        billablePercent: total > 0 ? Math.round((billableHours / total) * 100) : 0,
-        internalPercent: total > 0 ? Math.round((internalHours / total) * 100) : 0,
-    }
-}
+// TT.43.2 · buildProjectBudgetStatus + buildBillableDonut eliminados junto
+// con los componentes BudgetStatusTable + BillableDonut (Diego · 'solo los
+// más relevantes según docs' · quedan Hours-vs-Sold + Production Rate en Trends).
 
 // ------------------------------------------------------------
 // Utility · filter the utilization grid using the same filters
@@ -601,25 +519,6 @@ export function buildTrendsSummary(rows: TrainingGapRow[], significantThreshold 
     return { total: withData.length, slower, faster, stable, avgAbsChange }
 }
 
-// ------------------------------------------------------------
-// Team velocity aggregated · 4-week sparkline (avg minutes/task/wk)
-// Se usa el data ya computado en TrainingGapRow.points.
-// ------------------------------------------------------------
-export interface TeamVelocityPoint {
-    weekOffset: number    // 0 = oldest, 3 = current
-    avgMinutes: number    // team avg across all designers/tasks
-}
-
-export function buildTeamVelocityTrend(rows: TrainingGapRow[]): TeamVelocityPoint[] {
-    const points: TeamVelocityPoint[] = []
-    for (let wk = 0; wk <= 3; wk++) {
-        const values: number[] = []
-        for (const row of rows) {
-            const p = row.points.find(pt => pt.weekOffset === wk)
-            if (p && p.sampleCount > 0) values.push(p.avgMinutes)
-        }
-        const avg = values.length > 0 ? values.reduce((s, v) => s + v, 0) / values.length : 0
-        points.push({ weekOffset: wk, avgMinutes: avg })
-    }
-    return points
-}
+// TT.43.2 · buildTeamVelocityTrend + TeamVelocityPoint eliminados · el team
+// velocity chart fue removido del Trends tab por request de Diego (solo los
+// más relevantes según docs).

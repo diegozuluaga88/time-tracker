@@ -16,10 +16,6 @@ import OutlierCoachingCard from './OutlierCoachingCard'
 import DesignerDrilldown from './DesignerDrilldown'
 import TrendsTab from './team/TrendsTab'
 import UtilizationFiltersStrip from './team/UtilizationFilters'
-import HoursVsSoldCard from './team/HoursVsSoldCard'
-import ProductionRateCard from './team/ProductionRateCard'
-import BillableDonut from './team/BillableDonut'
-import BudgetStatusTable from './team/BudgetStatusTable'
 import {
     buildUtilizationGrid,
     detectMissingTime,
@@ -30,8 +26,6 @@ import {
     buildFilterOptions,
     buildHoursVsSold,
     buildProductionRateByBucket,
-    buildBillableDonut,
-    buildProjectBudgetStatus,
     filterUtilizationEntries,
     type UtilizationFilters,
 } from '../../data/managerInsights'
@@ -61,13 +55,14 @@ export default function TeamView({
     const outliers = useMemo(() => detectOutliers(weekMondayIso, allEntries), [weekMondayIso, allEntries])
     const trainingGaps = useMemo(() => buildTrainingGaps(weekMondayIso, allEntries), [weekMondayIso, allEntries])
 
-    // TT.43 · filtered entries + selectors del Utilization tab (respetan filters).
+    // TT.43.2 · Utilization tab · solo heatmap + filtros.
     const filteredEntries = useMemo(() => filterUtilizationEntries(allEntries, filters), [allEntries, filters])
     const utilGrid = useMemo(() => buildUtilizationGrid(weekMondayIso, filteredEntries, summerFridaysActive), [weekMondayIso, filteredEntries, summerFridaysActive])
-    const hoursVsSold = useMemo(() => buildHoursVsSold(weekMondayIso, allEntries, filters), [weekMondayIso, allEntries, filters])
-    const productionRate = useMemo(() => buildProductionRateByBucket(weekMondayIso, allEntries, filters), [weekMondayIso, allEntries, filters])
-    const billableSplit = useMemo(() => buildBillableDonut(weekMondayIso, allEntries, filters), [weekMondayIso, allEntries, filters])
-    const budgetRows = useMemo(() => buildProjectBudgetStatus(allEntries, filters), [allEntries, filters])
+
+    // TT.43.2 · Trends tab · Hours-vs-Sold + Production Rate (moved from Utilization).
+    // Sin filters (team-wide) · benchmark:223 + benchmark:225 must-have KPIs.
+    const hoursVsSold = useMemo(() => buildHoursVsSold(weekMondayIso, allEntries, DEFAULT_FILTERS), [weekMondayIso, allEntries])
+    const productionRate = useMemo(() => buildProductionRateByBucket(weekMondayIso, allEntries, DEFAULT_FILTERS), [weekMondayIso, allEntries])
 
     const openDrilldown = (designerId: string) => setDrilldownDesignerId(designerId as DesignerId)
 
@@ -113,12 +108,6 @@ export default function TeamView({
                                     todayIso={todayIso}
                                     onDesignerClick={openDrilldown}
                                 />
-                                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                                    <HoursVsSoldCard data={hoursVsSold} />
-                                    <ProductionRateCard buckets={productionRate} />
-                                    <BillableDonut split={billableSplit} />
-                                </div>
-                                <BudgetStatusTable rows={budgetRows} />
                             </div>
                         )
                     }
@@ -143,7 +132,14 @@ export default function TeamView({
                         )
                     }
                     if (active === 'trends') {
-                        return <TrendsTab rows={trainingGaps} onDesignerClick={openDrilldown} />
+                        return (
+                            <TrendsTab
+                                rows={trainingGaps}
+                                onDesignerClick={openDrilldown}
+                                hoursVsSold={hoursVsSold}
+                                productionRate={productionRate}
+                            />
+                        )
                     }
                     return null
                 }}
