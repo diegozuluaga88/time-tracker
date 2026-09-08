@@ -5,7 +5,7 @@
 
 import { Fragment, useEffect, useMemo, useState } from 'react'
 import { Dialog, Transition, DialogPanel, TransitionChild } from '@headlessui/react'
-import { X, Save, Clock, Palmtree, Umbrella, Thermometer, Minus, Plus } from 'lucide-react'
+import { X, Save, Clock, Palmtree, Umbrella, Thermometer, Minus, Plus, AlertTriangle } from 'lucide-react'
 import ProjectSelector from './ProjectSelector'
 import TaskTypeDropdown from './TaskTypeDropdown'
 import CumulativeHoursInline from './CumulativeHoursInline'
@@ -19,6 +19,8 @@ import Textarea from '../ui/Textarea'
 const TIME_OFF_PROJECT_ID = 'INTERNAL-TIME-OFF'
 import { coachingCopy } from '../../data/coachingCopy'
 import type { TimeEntry } from '../../data/timeEntries'
+import { projectCumulativeMinutes } from '../../data/timeEntries'
+import { getProject } from '../../data/projects'
 
 interface Props {
     isOpen: boolean
@@ -82,6 +84,19 @@ export default function TimeEntryForm({ isOpen, onClose, date, entry, allEntries
     const hoursRemaining = Math.max(0, weeklyCapacityHours - hoursWeekWithDraft)
     const isOverCapacity = hoursWeekWithDraft > weeklyCapacityHours + 0.01
     const overageHours = hoursWeekWithDraft - weeklyCapacityHours
+
+    // TT.47.1 · Diego 2026-09-09 · project over-budget state · shows warning
+    // inline entre grid y footer cuando este entry empuja al proyecto past
+    // the plan · aligned con Bundle A wording del CumulativeHoursInline.
+    const currentProject = projectId && projectId !== TIME_OFF_PROJECT_ID ? getProject(projectId) : null
+    const projectBudgetInfo = useMemo(() => {
+        if (!currentProject) return null
+        const cumulativeMin = projectCumulativeMinutes(currentProject.id, allEntries)
+        const totalHoursAfter = (cumulativeMin + draftMinutes) / 60
+        const overBudget = totalHoursAfter > currentProject.budgetHours
+        const overHours = totalHoursAfter - currentProject.budgetHours
+        return { overBudget, overHours, totalHoursAfter, budgetHours: currentProject.budgetHours, projectName: currentProject.name }
+    }, [currentProject, allEntries, draftMinutes])
 
     // TT.18 · quick-pick time off · auto-set task + duration + sentinel project.
     // Aplica solo a new entries · en edit el user modifica desde el dropdown.
@@ -292,10 +307,12 @@ export default function TimeEntryForm({ isOpen, onClose, date, entry, allEntries
                                     )}
 
                                     {/* TT.47 · Grid 2-col · Col 1 = WHEN + WHAT PROJECT ·
-                                        Col 2 = TASK + NOTES. En <lg cae a 1 col stacked. */}
-                                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                                        Col 2 = TASK + NOTES + DELIVERABLE. En <lg cae a 1 col.
+                                        TT.47.1 · gap aumentado + divider vertical entre cols
+                                        para marcar mejor la separación (feedback tech lead). */}
+                                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8 lg:divide-x lg:divide-border">
                                         {/* ─── COL 1 · identification ─── */}
-                                        <div className="space-y-4">
+                                        <div className="space-y-4 lg:pr-2">
                                             {/* Time range · TT.12 */}
                                             {startMin !== undefined ? (
                                                 <div>
@@ -362,8 +379,8 @@ export default function TimeEntryForm({ isOpen, onClose, date, entry, allEntries
                                             )}
                                         </div>
 
-                                        {/* ─── COL 2 · context / narrative ─── */}
-                                        <div className="space-y-4">
+                                        {/* ─── COL 2 · context / narrative + deliverable ─── */}
+                                        <div className="space-y-4 lg:pl-8">
                                             <div>
                                                 <label className="block text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1.5">
                                                     Task type
@@ -379,21 +396,40 @@ export default function TimeEntryForm({ isOpen, onClose, date, entry, allEntries
                                                 <Textarea
                                                     value={memo}
                                                     onChange={(e) => setMemo(e.target.value)}
-                                                    rows={4}
+                                                    rows={3}
                                                     placeholder="What did you work on?"
                                                 />
                                             </div>
+
+                                            {/* TT.47.1 · Deliverable movido a col 2 (antes full-width) ·
+                                                sigue oculto en time-off como antes. */}
+                                            {!isTimeOff && (
+                                                <DeliverableCompleteCheckbox
+                                                    checked={deliverableComplete}
+                                                    onChange={setDeliverableComplete}
+                                                    projectId={projectId === TIME_OFF_PROJECT_ID ? null : projectId}
+                                                    onDispatched={(info) => onDeliverableDispatched?.({ entryId: entry?.id ?? null, ...info })}
+                                                />
+                                            )}
                                         </div>
                                     </div>
 
-                                    {/* Deliverable (whitespace #1) · TT.18 · skip para time off */}
-                                    {!isTimeOff && (
-                                        <DeliverableCompleteCheckbox
-                                            checked={deliverableComplete}
-                                            onChange={setDeliverableComplete}
-                                            projectId={projectId === TIME_OFF_PROJECT_ID ? null : projectId}
-                                            onDispatched={(info) => onDeliverableDispatched?.({ entryId: entry?.id ?? null, ...info })}
-                                        />
+                                    {/* TT.47.1 · Warning inline cuando este entry empuja al project
+                                        past the plan (Bundle A wording). Non-blocking coaching signal
+                                        alineado con el spirit doc (benchmark:83 · prompt-before-save
+                                        NO hard-block · McKinley: 'add hours to next quote or change order'). */}
+                                    {projectBudgetInfo?.overBudget && billable && (
+                                        <div className="rounded-lg border border-destructive/40 bg-destructive-soft p-3 flex items-start gap-3">
+                                            <AlertTriangle className="h-4 w-4 text-destructive shrink-0 mt-0.5" />
+                                            <div className="flex-1 text-sm text-foreground">
+                                                <p className="font-medium">
+                                                    This entry pushes <span className="font-semibold">{projectBudgetInfo.projectName}</span> past the plan · +{projectBudgetInfo.overHours.toFixed(1)}h over the {projectBudgetInfo.budgetHours}h scoped.
+                                                </p>
+                                                <p className="text-xs text-muted-foreground mt-0.5">
+                                                    Consider marking as internal (uncheck Billable) or logging the excess in a change order.
+                                                </p>
+                                            </div>
+                                        </div>
                                     )}
 
                                     {/* Prompt-before-save */}
