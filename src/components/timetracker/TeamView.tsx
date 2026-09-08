@@ -13,8 +13,8 @@ import TabsShell, { type TabDef } from './team/TabsShell'
 import UtilizationHeatmap from './UtilizationHeatmap'
 import MissingTimeDigest from './MissingTimeDigest'
 import OutlierCoachingCard from './OutlierCoachingCard'
-import TrainingGapSparklines from './TrainingGapSparklines'
 import DesignerDrilldown from './DesignerDrilldown'
+import TrendsTab from './team/TrendsTab'
 import UtilizationFiltersStrip from './team/UtilizationFilters'
 import HoursVsSoldCard from './team/HoursVsSoldCard'
 import ProductionRateCard from './team/ProductionRateCard'
@@ -143,7 +143,7 @@ export default function TeamView({
                         )
                     }
                     if (active === 'trends') {
-                        return <TrainingGapSparklines rows={trainingGaps} onDesignerClick={openDrilldown} />
+                        return <TrendsTab rows={trainingGaps} onDesignerClick={openDrilldown} />
                     }
                     return null
                 }}

@@ -577,3 +577,49 @@ export function filterUtilizationEntries(
     }
     return allEntries.filter(e => entryMatchesFilters(e, filters))
 }
+
+// ============================================================
+// TT.43.1 · Trends tab · summary + team velocity chart
+// ============================================================
+export interface TrendsSummary {
+    total: number             // total rows with data
+    slower: number            // trend > 0
+    faster: number            // trend < 0
+    stable: number            // |trend| < 5
+    avgAbsChange: number      // avg absolute change % across all rows
+}
+
+export function buildTrendsSummary(rows: TrainingGapRow[], significantThreshold = 15): TrendsSummary {
+    const withData = rows.filter(r => r.points[3].sampleCount > 0)
+    const significant = withData.filter(r => Math.abs(r.trendPercent) >= significantThreshold)
+    const slower = significant.filter(r => r.trendPercent > 0).length
+    const faster = significant.filter(r => r.trendPercent < 0).length
+    const stable = withData.length - slower - faster
+    const avgAbsChange = withData.length > 0
+        ? Math.round(withData.reduce((s, r) => s + Math.abs(r.trendPercent), 0) / withData.length)
+        : 0
+    return { total: withData.length, slower, faster, stable, avgAbsChange }
+}
+
+// ------------------------------------------------------------
+// Team velocity aggregated · 4-week sparkline (avg minutes/task/wk)
+// Se usa el data ya computado en TrainingGapRow.points.
+// ------------------------------------------------------------
+export interface TeamVelocityPoint {
+    weekOffset: number    // 0 = oldest, 3 = current
+    avgMinutes: number    // team avg across all designers/tasks
+}
+
+export function buildTeamVelocityTrend(rows: TrainingGapRow[]): TeamVelocityPoint[] {
+    const points: TeamVelocityPoint[] = []
+    for (let wk = 0; wk <= 3; wk++) {
+        const values: number[] = []
+        for (const row of rows) {
+            const p = row.points.find(pt => pt.weekOffset === wk)
+            if (p && p.sampleCount > 0) values.push(p.avgMinutes)
+        }
+        const avg = values.length > 0 ? values.reduce((s, v) => s + v, 0) / values.length : 0
+        points.push({ weekOffset: wk, avgMinutes: avg })
+    }
+    return points
+}

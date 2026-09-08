@@ -1,10 +1,8 @@
-// TT.43 · Diego 2026-09-08 · Utilization tab · filter strip.
-// 4 filtros basados en pain #2 (Excel replacement) · matches el mental
-// model de McKinley/Jimmy en el weekly rollup manual.
-//
-// Layout: 2 segmented pills (Company · Billable) + 2 dropdowns (Size · Sales rep).
+// TT.43.1 · Diego 2026-09-08 · Utilization filters · 1-row compact.
+// Antes: card wrapper + title + 4 columns apiladas (~200px alto).
+// Ahora: 1 row inline con 4 compact controls (~40px alto).
 
-import { Building2, Wallet, TrendingUp, User, X } from 'lucide-react'
+import { Filter, X } from 'lucide-react'
 import type { UtilizationFilters, FilterOptions, SizeBucket } from '../../../data/managerInsights'
 import { DEFAULT_FILTERS } from '../../../data/managerInsights'
 import type { Company } from '../../../data/projects'
@@ -15,121 +13,136 @@ interface Props {
     options: FilterOptions
 }
 
+const COMPANY_LABEL: Record<Company | 'all', string> = {
+    all: 'All companies',
+    'Rightsize': 'Rightsize',
+    'Office Furniture Center': 'OFC',
+    'Mac Relocations': 'Mac Relocations',
+}
+const BILLABLE_LABEL: Record<'all' | 'billable' | 'internal', string> = {
+    all: 'All work',
+    billable: 'Billable only',
+    internal: 'Internal only',
+}
+const SIZE_LABEL: Record<SizeBucket | 'all', string> = {
+    all: 'All sizes',
+    small: '$0-10K',
+    medium: '$10-100K',
+    large: '$100K+',
+}
+
 export default function UtilizationFiltersStrip({ value, onChange, options }: Props) {
     const set = <K extends keyof UtilizationFilters>(key: K, v: UtilizationFilters[K]) => {
         onChange({ ...value, [key]: v })
     }
     const reset = () => onChange(DEFAULT_FILTERS)
     const isFiltered = value.company !== 'all' || value.billable !== 'all' || value.sizeBucket !== 'all' || value.salesRep !== 'all'
+    const activeCount = [value.company, value.billable, value.sizeBucket, value.salesRep].filter(v => v !== 'all').length
 
     return (
-        <div className="rounded-2xl border border-border bg-card p-4">
-            <div className="flex items-baseline justify-between gap-3 mb-3 flex-wrap">
-                <div>
-                    <h3 className="text-sm font-semibold text-foreground">Filters</h3>
-                    <p className="text-xs text-muted-foreground mt-0.5">Applies to the heatmap and all charts below.</p>
-                </div>
+        <div className="flex items-center gap-2 flex-wrap px-1">
+            <div className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mr-1">
+                <Filter className="h-3 w-3" />
+                Filters
                 {isFiltered && (
-                    <button
-                        type="button"
-                        onClick={reset}
-                        className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground px-2 py-1 rounded-md hover:bg-muted transition-colors"
-                    >
-                        <X className="h-3 w-3" />
-                        Reset all
-                    </button>
+                    <span className="ml-1 inline-flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-primary text-primary-foreground text-[10px] tabular-nums">{activeCount}</span>
                 )}
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
-                {/* Company · segmented pill */}
-                <FilterField icon={Building2} label="Company">
-                    <Segmented
-                        value={value.company}
-                        onChange={(v) => set('company', v as Company | 'all')}
-                        options={[
-                            { value: 'all', label: 'All' },
-                            { value: 'Rightsize', label: 'Rightsize' },
-                            { value: 'Office Furniture Center', label: 'OFC' },
-                            { value: 'Mac Relocations', label: 'Mac' },
-                        ]}
-                    />
-                </FilterField>
+            <FilterSelect
+                label="Company"
+                value={value.company}
+                onChange={(v) => set('company', v as Company | 'all')}
+                options={[
+                    { value: 'all', label: COMPANY_LABEL.all },
+                    { value: 'Rightsize', label: 'Rightsize' },
+                    { value: 'Office Furniture Center', label: 'OFC' },
+                    { value: 'Mac Relocations', label: 'Mac Relocations' },
+                ]}
+                displayLabel={COMPANY_LABEL[value.company]}
+                highlighted={value.company !== 'all'}
+            />
 
-                {/* Billable vs Internal · segmented pill */}
-                <FilterField icon={Wallet} label="Billable">
-                    <Segmented
-                        value={value.billable}
-                        onChange={(v) => set('billable', v as 'all' | 'billable' | 'internal')}
-                        options={[
-                            { value: 'all', label: 'All' },
-                            { value: 'billable', label: 'Billable' },
-                            { value: 'internal', label: 'Internal' },
-                        ]}
-                    />
-                </FilterField>
+            <FilterSelect
+                label="Billable"
+                value={value.billable}
+                onChange={(v) => set('billable', v as 'all' | 'billable' | 'internal')}
+                options={[
+                    { value: 'all', label: 'All work' },
+                    { value: 'billable', label: 'Billable only' },
+                    { value: 'internal', label: 'Internal only' },
+                ]}
+                displayLabel={BILLABLE_LABEL[value.billable]}
+                highlighted={value.billable !== 'all'}
+            />
 
-                {/* Project size bucket · dropdown */}
-                <FilterField icon={TrendingUp} label="Project size">
-                    <select
-                        value={value.sizeBucket}
-                        onChange={(e) => set('sizeBucket', e.target.value as SizeBucket | 'all')}
-                        className="w-full px-2.5 py-1.5 text-sm bg-background border border-input rounded-md text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
-                    >
-                        <option value="all">All sizes</option>
-                        <option value="small">$0-10K</option>
-                        <option value="medium">$10-100K</option>
-                        <option value="large">$100K+</option>
-                    </select>
-                </FilterField>
+            <FilterSelect
+                label="Size"
+                value={value.sizeBucket}
+                onChange={(v) => set('sizeBucket', v as SizeBucket | 'all')}
+                options={[
+                    { value: 'all', label: 'All sizes' },
+                    { value: 'small', label: '$0-10K' },
+                    { value: 'medium', label: '$10-100K' },
+                    { value: 'large', label: '$100K+' },
+                ]}
+                displayLabel={SIZE_LABEL[value.sizeBucket]}
+                highlighted={value.sizeBucket !== 'all'}
+            />
 
-                {/* Sales rep · dropdown */}
-                <FilterField icon={User} label="Sales rep">
-                    <select
-                        value={value.salesRep}
-                        onChange={(e) => set('salesRep', e.target.value)}
-                        className="w-full px-2.5 py-1.5 text-sm bg-background border border-input rounded-md text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
-                    >
-                        <option value="all">All reps</option>
-                        {options.salesReps.map(rep => (
-                            <option key={rep} value={rep}>{rep}</option>
-                        ))}
-                    </select>
-                </FilterField>
-            </div>
-        </div>
-    )
-}
+            <FilterSelect
+                label="Sales rep"
+                value={value.salesRep}
+                onChange={(v) => set('salesRep', v)}
+                options={[
+                    { value: 'all', label: 'All reps' },
+                    ...options.salesReps.map(r => ({ value: r, label: r })),
+                ]}
+                displayLabel={value.salesRep === 'all' ? 'All reps' : value.salesRep}
+                highlighted={value.salesRep !== 'all'}
+            />
 
-function FilterField({ icon: Icon, label, children }: { icon: React.ComponentType<{ className?: string }>; label: string; children: React.ReactNode }) {
-    return (
-        <div>
-            <label className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1.5">
-                <Icon className="h-3 w-3" />
-                {label}
-            </label>
-            {children}
-        </div>
-    )
-}
-
-function Segmented<T extends string>({ value, onChange, options }: { value: T; onChange: (v: T) => void; options: { value: T; label: string }[] }) {
-    return (
-        <div className="inline-flex rounded-md border border-input p-0.5 bg-background overflow-x-auto">
-            {options.map(opt => (
+            {isFiltered && (
                 <button
-                    key={opt.value}
                     type="button"
-                    onClick={() => onChange(opt.value)}
-                    className={`px-2.5 py-1 text-xs font-medium rounded whitespace-nowrap transition-colors ${
-                        value === opt.value
-                            ? 'bg-primary text-primary-foreground'
-                            : 'text-muted-foreground hover:text-foreground hover:bg-muted'
-                    }`}
+                    onClick={reset}
+                    className="ml-auto inline-flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground px-2 py-1 rounded-md hover:bg-muted transition-colors"
                 >
-                    {opt.label}
+                    <X className="h-3 w-3" />
+                    Reset
                 </button>
-            ))}
+            )}
+        </div>
+    )
+}
+
+/** Compact native select styled as a pill · label prefix + arrow. */
+function FilterSelect<T extends string>({ label, value, onChange, options, displayLabel, highlighted }: {
+    label: string
+    value: T
+    onChange: (v: T) => void
+    options: { value: T; label: string }[]
+    displayLabel: string
+    highlighted: boolean
+}) {
+    return (
+        <div className={`relative inline-flex items-center rounded-md border text-xs transition-colors ${highlighted ? 'bg-primary-soft border-primary/40 text-foreground' : 'bg-background border-input text-foreground hover:bg-muted'}`}>
+            <span className="pl-2.5 py-1.5 text-muted-foreground select-none">{label}</span>
+            <span className="mx-1 text-muted-foreground">·</span>
+            <span className={`py-1.5 pr-6 font-medium ${highlighted ? 'text-foreground' : 'text-foreground'}`}>{displayLabel}</span>
+            <select
+                value={value}
+                onChange={(e) => onChange(e.target.value as T)}
+                className="absolute inset-0 opacity-0 cursor-pointer"
+                aria-label={`Filter ${label}`}
+            >
+                {options.map(o => (
+                    <option key={o.value} value={o.value}>{o.label}</option>
+                ))}
+            </select>
+            <svg className="absolute right-2 h-3 w-3 pointer-events-none text-muted-foreground" viewBox="0 0 12 12" fill="none">
+                <path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
         </div>
     )
 }
